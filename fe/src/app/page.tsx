@@ -186,6 +186,14 @@ export default function HomePage() {
     return idx >= 0 ? idx : 0;
   }, [pageData, selectedArea]);
 
+  const bookingLocked = !pageData?.acceptingBookings;
+
+  useEffect(() => {
+    if (bookingLocked) {
+      setShowBookingForm(false);
+    }
+  }, [bookingLocked]);
+
   const footerLinks = pageData?.footerLinks ?? [];
   const footerLinkUrls = pageData?.footerLinkUrls ?? [];
 
@@ -288,6 +296,10 @@ export default function HomePage() {
   );
 
   const handleBookingSubmit = async () => {
+    if (bookingLocked) {
+      setBookingMessage(pageData?.bookingNotice || "Hệ thống hiện đang tạm ngưng nhận booking.");
+      return;
+    }
     if (!selectedBookingItem) {
       setBookingMessage("Vui lòng chọn ít nhất 1 khung giờ.");
       return;
@@ -691,13 +703,13 @@ export default function HomePage() {
                   {room.slots.map((slot) => (
                     <button
                       key={slot.time}
-                      disabled={slot.status === "Đã Đặt"}
+                      disabled={bookingLocked || slot.status === "Đã Đặt"}
                       onClick={(event) => {
                         event.stopPropagation();
                         handleSlotPick(room.name, slot.time);
                       }}
                       className={`rounded-[14px] px-2 py-3 text-center transition-transform duration-300 active:scale-95 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-80 ${
-                        slot.status === "Đã Đặt"
+                        bookingLocked || slot.status === "Đã Đặt"
                           ? "bg-slate-200 text-slate-500"
                           : selectedSlots[room.name] === slot.time
                             ? "bg-[#4c67b2] text-white"
@@ -1007,8 +1019,12 @@ export default function HomePage() {
           </div>
           <button
             className="inline-flex items-center gap-2 rounded-2xl bg-white/25 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-transform active:scale-95 sm:px-5 sm:text-base"
-            disabled={!pageData.acceptingBookings}
+            disabled={bookingLocked}
             onClick={() => {
+              if (bookingLocked) {
+                setBookingMessage(pageData.bookingNotice || "Hệ thống hiện đang tạm ngưng nhận booking.");
+                return;
+              }
               if (selectedRoomCount > 0) {
                 setShowBookingForm(true);
                 setBookingMessage(null);
@@ -1017,10 +1033,10 @@ export default function HomePage() {
               }
             }}
           >
-            {pageData.acceptingBookings ? "Đặt phòng →" : "Tạm ngưng nhận booking"}
+            {bookingLocked ? "Tạm ngưng nhận booking" : "Đặt phòng →"}
           </button>
         </div>
-        {!pageData.acceptingBookings && pageData.bookingNotice ? (
+        {bookingLocked && pageData.bookingNotice ? (
           <p className="mx-auto mt-2 max-w-[430px] text-xs text-white/80 sm:max-w-6xl sm:px-2">{pageData.bookingNotice}</p>
         ) : null}
       </div>
