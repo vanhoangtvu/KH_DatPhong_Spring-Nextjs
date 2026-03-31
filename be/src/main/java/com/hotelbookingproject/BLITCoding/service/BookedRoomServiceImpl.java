@@ -1,20 +1,15 @@
 package com.hotelbookingproject.BLITCoding.service;
 
-
 import com.hotelbookingproject.BLITCoding.exception.InvalidBookingException;
 import com.hotelbookingproject.BLITCoding.model.BookedRoom;
 import com.hotelbookingproject.BLITCoding.model.HomePageConfig;
 import com.hotelbookingproject.BLITCoding.model.Room;
 import com.hotelbookingproject.BLITCoding.repository.BookedRoomRepository;
 import com.hotelbookingproject.BLITCoding.repository.HomePageConfigRepository;
-import com.hotelbookingproject.BLITCoding.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,8 +19,6 @@ public class BookedRoomServiceImpl implements BookedRoomService {
 
     private final BookedRoomRepository bookedRoomRepository;
     private final HomePageConfigRepository homePageConfigRepository;
-    private final RoomRepository roomRepository;
-    @Autowired
     private final RoomService roomService;
     @Override
     public List<BookedRoom> getAllBookingsByRoomId(Long roomId) {

@@ -1,0 +1,49 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# Backend (Java/Maven)
+be/target/
+be/.mvn/wrapper/maven-wrapper.jar
+be/HELP.md
+be/*.log
+be/*.gz
+
+# Frontend (Next.js)
+fe/node_modules/
+fe/.next/
+fe/out/
+fe/build/
+fe/dist/
+fe/.env.local
+fe/.env.development.local
+fe/.env.test.local
+fe/.env.production.local
+fe/npm-debug.log*
+fe/yarn-debug.log*
+fe/yarn-error.log*
+
+# Test files
+*.sh
+test-*.sh
+clean-*.sh
+
+# Temporary files
+*.tmp
+*.temp
+*.txt
+*.bak
+*.swp
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
