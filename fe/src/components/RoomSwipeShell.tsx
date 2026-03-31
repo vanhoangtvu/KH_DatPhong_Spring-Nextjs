@@ -98,8 +98,15 @@ export default function RoomSwipeShell({ previousHref, nextHref, previousLabel, 
           <button
             type="button"
             disabled={!canGoPrev}
-            onClick={() => previousHref && router.push(previousHref)}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold text-[#4361af] disabled:opacity-40"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (previousHref) {
+                console.log('Mobile: Navigating to previous:', previousHref);
+                router.push(previousHref);
+              }
+            }}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold text-[#4361af] transition-colors active:bg-[#eef3ff] disabled:opacity-40"
           >
             <span className="text-lg">‹</span>
             <span className="min-w-0 truncate">{previousLabel || "Phòng trước"}</span>
@@ -108,8 +115,15 @@ export default function RoomSwipeShell({ previousHref, nextHref, previousLabel, 
           <button
             type="button"
             disabled={!canGoNext}
-            onClick={() => nextHref && router.push(nextHref)}
-            className="flex min-w-0 flex-1 items-center justify-end gap-2 rounded-xl px-2 py-2 text-right text-sm font-semibold text-[#4361af] disabled:opacity-40"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (nextHref) {
+                console.log('Mobile: Navigating to next:', nextHref);
+                router.push(nextHref);
+              }
+            }}
+            className="flex min-w-0 flex-1 items-center justify-end gap-2 rounded-xl px-2 py-2 text-right text-sm font-semibold text-[#4361af] transition-colors active:bg-[#eef3ff] disabled:opacity-40"
           >
             <span className="min-w-0 truncate">{nextLabel || "Phòng sau"}</span>
             <span className="text-lg">›</span>
@@ -118,21 +132,35 @@ export default function RoomSwipeShell({ previousHref, nextHref, previousLabel, 
       ) : null}
 
       {(canGoPrev || canGoNext) ? (
-        <div className="pointer-events-none fixed inset-y-1/2 left-0 right-0 z-0 hidden -translate-y-1/2 sm:block">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-2">
+        <div className="pointer-events-none fixed inset-y-1/2 left-0 right-0 z-[9999] hidden -translate-y-1/2 sm:block">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4">
             <button
               type="button"
               disabled={!canGoPrev}
-              onClick={() => previousHref && router.push(previousHref)}
-              className="pointer-events-auto rounded-full border border-[#dfe6fb] bg-white/80 px-3 py-2 text-sm font-semibold text-[#4361af] shadow-sm backdrop-blur disabled:opacity-30"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (previousHref) {
+                  console.log('Navigating to previous:', previousHref);
+                  router.push(previousHref);
+                }
+              }}
+              className="pointer-events-auto rounded-full border-2 border-[#4361af] bg-white px-5 py-3 text-base font-bold text-[#4361af] shadow-xl backdrop-blur transition-all hover:bg-[#4361af] hover:text-white hover:shadow-2xl active:scale-95 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-50"
             >
               ‹ {previousLabel || "Phòng trước"}
             </button>
             <button
               type="button"
               disabled={!canGoNext}
-              onClick={() => nextHref && router.push(nextHref)}
-              className="pointer-events-auto rounded-full border border-[#dfe6fb] bg-white/80 px-3 py-2 text-sm font-semibold text-[#4361af] shadow-sm backdrop-blur disabled:opacity-30"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (nextHref) {
+                  console.log('Navigating to next:', nextHref);
+                  router.push(nextHref);
+                }
+              }}
+              className="pointer-events-auto rounded-full border-2 border-[#4361af] bg-white px-5 py-3 text-base font-bold text-[#4361af] shadow-xl backdrop-blur transition-all hover:bg-[#4361af] hover:text-white hover:shadow-2xl active:scale-95 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-50"
             >
               {nextLabel || "Phòng sau"} ›
             </button>

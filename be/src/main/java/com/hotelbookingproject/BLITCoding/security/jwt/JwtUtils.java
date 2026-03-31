@@ -75,9 +75,9 @@ public class JwtUtils {
         }catch (MalformedJwtException e){
             logger.error("Invalid JWT token : {}", e.getMessage());
         }catch (ExpiredJwtException e){
-            logger.error( "expired JWT token : {}", e.getMessage());
+            logger.warn("Expired JWT token : {}", e.getMessage());
         }catch (UnsupportedJwtException e){
-            logger.error( "unsupported JWT token : {}", e.getMessage());
+            logger.error("Unsupported JWT token : {}", e.getMessage());
         }catch (IllegalArgumentException e){
             logger.error("JWT token could not be parsed");
         }

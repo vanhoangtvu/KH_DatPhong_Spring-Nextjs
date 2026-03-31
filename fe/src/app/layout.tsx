@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LuxeStay | Đặt phòng khách sạn hiện đại",
+  title: "Fiin Home | Đặt phòng khách sạn hiện đại",
   description:
-    "Trang giao diện đặt khách sạn hiện đại, tối ưu mobile với hiệu ứng chuyển động mượt mà.",
+    "Fiin Home - Hệ thống đặt phòng khách sạn hiện đại, tối ưu mobile với hiệu ứng chuyển động mượt mà.",
   icons: {
     icon: "/LOGO%20FIIN.png",
   },

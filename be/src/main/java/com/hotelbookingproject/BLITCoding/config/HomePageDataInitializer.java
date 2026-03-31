@@ -4,9 +4,11 @@ import com.hotelbookingproject.BLITCoding.model.HomePageConfig;
 import com.hotelbookingproject.BLITCoding.repository.HomePageConfigRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
+@Order(2)
 @RequiredArgsConstructor
 public class HomePageDataInitializer implements CommandLineRunner {
 
@@ -26,8 +28,8 @@ public class HomePageDataInitializer implements CommandLineRunner {
     private HomePageConfig buildDefaultConfig() {
         HomePageConfig config = new HomePageConfig();
         config.setConfigKey(CONFIG_KEY);
-        config.setBrandName("LuxeStay");
-        config.setBrandSubtitle("Đặt phòng mobile hiện đại");
+        config.setBrandName("Fiin Home");
+        config.setBrandSubtitle("Đặt phòng khách sạn hiện đại");
         config.setHotline("1900 2026");
         config.setHeroBadge("Mọi lúc, mọi nơi");
         config.setHeroTitle("Chọn phòng chill, đặt nhanh trên điện thoại.");

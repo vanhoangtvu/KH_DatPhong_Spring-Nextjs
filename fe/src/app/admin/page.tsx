@@ -21,6 +21,15 @@ type AdminRoom = {
   booked: boolean;
 };
 
+type Branch = {
+  id: number;
+  name: string;
+  description: string;
+  address: string;
+  phone: string;
+  active: boolean;
+};
+
 type BookingItem = {
   bookingId: number;
   checkInDate: string;
@@ -147,17 +156,30 @@ const formatBookingDate = (value: string) => {
 };
 
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<"overview" | "branches" | "rooms" | "bookings" | "settings">("overview");
   const [token, setToken] = useState("");
+  const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [showRoomForm, setShowRoomForm] = useState(false);
+  const [showBranchForm, setShowBranchForm] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
 
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
+  const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null);
+  const [editingBranchId, setEditingBranchId] = useState<number | null>(null);
+  const [branchForm, setBranchForm] = useState({
+    name: "",
+    description: "",
+    address: "",
+    phone: "",
+    active: true,
+  });
   const [settings, setSettings] = useState<BookingSettings>({
     acceptingBookings: true,
     bookingNotice: "",
@@ -173,6 +195,7 @@ export default function AdminPage() {
   const [roomForm, setRoomForm] = useState(EMPTY_ROOM);
   const [galleryItems, setGalleryItems] = useState<string[]>([""]);
   const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
+  
   const branchOptions = Array.from(new Set(rooms.map((room) => room.areaName).filter(Boolean))).sort();
   const branchGroups = branchOptions.map((branch) => {
     const branchRooms = rooms.filter((room) => room.areaName === branch);
@@ -190,28 +213,56 @@ export default function AdminPage() {
 
   useEffect(() => {
     const localToken = window.localStorage.getItem("adminToken") ?? "";
+    const expiryStr = window.localStorage.getItem("adminTokenExpiry");
     setToken(localToken);
+    if (expiryStr) {
+      setTokenExpiry(parseInt(expiryStr, 10));
+    }
   }, []);
 
   const authHeaders: Record<string, string> = token
     ? { Authorization: `Bearer ${token}` }
     : {};
 
+  const handleLogout = () => {
+    setToken("");
+    setTokenExpiry(null);
+    window.localStorage.removeItem("adminToken");
+    window.localStorage.removeItem("adminTokenExpiry");
+    setEmail("");
+    setPassword("");
+    setRooms([]);
+    setBranches([]);
+    setBookings([]);
+    setSettings({ acceptingBookings: true, bookingNotice: "" });
+    setHomePageConfig(null);
+    setMessage("Đã đăng xuất thành công");
+  };
+
   const loadAdminData = async () => {
     if (!token) return;
     try {
       setMessage("Đang tải dữ liệu admin...");
-      const [roomRes, bookingRes, settingsRes] = await Promise.all([
+      const [branchRes, roomRes, bookingRes, settingsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/public/branches`, { headers: authHeaders }),
         fetch(`${API_BASE}/api/admin/rooms`, { headers: authHeaders }),
         fetch(`${API_BASE}/bookings/all-bookings`, { headers: authHeaders }),
         fetch(`${API_BASE}/api/admin/home-page/booking-settings`, { headers: authHeaders }),
       ]);
 
-      if (!roomRes.ok || !bookingRes.ok || !settingsRes.ok) {
+      // Check for 401 on any request
+      if (branchRes.status === 401 || roomRes.status === 401 || bookingRes.status === 401 || settingsRes.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
+
+      if (!branchRes.ok || !roomRes.ok || !bookingRes.ok || !settingsRes.ok) {
         throw new Error("Token không hợp lệ hoặc không có quyền admin");
       }
 
-      const [roomsData, bookingsData, settingsData] = await Promise.all([
+      const [branchesData, roomsData, bookingsData, settingsData] = await Promise.all([
+        branchRes.json(),
         roomRes.json(),
         bookingRes.json(),
         settingsRes.json(),
@@ -220,6 +271,7 @@ export default function AdminPage() {
       const homePageRes = await fetch(`${API_BASE}/api/public/home-page`);
       const homePageData = homePageRes.ok ? ((await homePageRes.json()) as HomePageConfigData) : null;
 
+      setBranches(branchesData as Branch[]);
       setRooms(roomsData as AdminRoom[]);
       setBookings(bookingsData as BookingItem[]);
       setSettings(settingsData as BookingSettings);
@@ -242,6 +294,36 @@ export default function AdminPage() {
     void loadAdminData();
   }, [token]);
 
+  // Check token expiry and show warning
+  useEffect(() => {
+    if (!token || !tokenExpiry) return;
+    
+    const checkExpiry = () => {
+      const now = Date.now();
+      const timeLeft = tokenExpiry - now;
+      
+      // If less than 30 minutes left, show warning
+      if (timeLeft > 0 && timeLeft < 1800000) {
+        const minutesLeft = Math.floor(timeLeft / 60000);
+        setMessage(`⚠️ Token sẽ hết hạn sau ${minutesLeft} phút. Vui lòng lưu công việc.`);
+      }
+      
+      // If expired, logout
+      if (timeLeft <= 0) {
+        setMessage("Token đã hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+      }
+    };
+    
+    // Check immediately
+    checkExpiry();
+    
+    // Check every minute
+    const interval = setInterval(checkExpiry, 60000);
+    
+    return () => clearInterval(interval);
+  }, [token, tokenExpiry]);
+
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -254,8 +336,11 @@ export default function AdminPage() {
         throw new Error("Đăng nhập thất bại");
       }
       const data = (await response.json()) as { token: string };
+      const expiryTime = Date.now() + 28800000; // 8 hours from now
       setToken(data.token);
+      setTokenExpiry(expiryTime);
       window.localStorage.setItem("adminToken", data.token);
+      window.localStorage.setItem("adminTokenExpiry", expiryTime.toString());
       setMessage("Đăng nhập admin thành công");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Không đăng nhập được");
@@ -272,6 +357,11 @@ export default function AdminPage() {
         },
         body: JSON.stringify(settings),
       });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
       if (!response.ok) {
         throw new Error("Không lưu được cấu hình nhận booking");
       }
@@ -304,6 +394,11 @@ export default function AdminPage() {
         },
         body: JSON.stringify(payload),
       });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
       if (!response.ok) {
         throw new Error("Không lưu được footer");
       }
@@ -344,12 +439,17 @@ export default function AdminPage() {
         body: JSON.stringify({ ...roomForm, galleryCsv }),
       });
 
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
       if (!response.ok) {
         throw new Error("Không lưu được phòng");
       }
 
-        setRoomForm(EMPTY_ROOM);
-        setGalleryItems([""]);
+      setRoomForm(EMPTY_ROOM);
+      setGalleryItems([""]);
       setEditingRoomId(null);
       setShowRoomForm(false);
       setMessage("Lưu phòng thành công");
@@ -380,14 +480,21 @@ export default function AdminPage() {
       slotPricesCsv: room.slotPricesCsv,
       slotStatusesCsv: room.slotStatusesCsv,
     });
+    setActiveTab("rooms");
   };
 
   const handleDeleteRoom = async (roomId: number) => {
+    if (!confirm("Bạn có chắc muốn xóa phòng này?")) return;
     try {
       const response = await fetch(`${API_BASE}/api/admin/rooms/${roomId}`, {
         method: "DELETE",
         headers: authHeaders,
       });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
       if (!response.ok) {
         throw new Error("Không xóa được phòng");
       }
@@ -399,23 +506,160 @@ export default function AdminPage() {
   };
 
   const handleDeleteBooking = async (bookingId: number) => {
+    if (!confirm("Bạn có chắc muốn xóa booking này?")) return;
     try {
       const response = await fetch(`${API_BASE}/bookings/booking/${bookingId}/delete`, {
         method: "DELETE",
         headers: authHeaders,
       });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
       if (!response.ok) {
         throw new Error("Không xóa được booking");
       }
       setMessage("Đã xóa booking");
+      setSelectedBooking(null);
       await loadAdminData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Xóa booking thất bại");
     }
   };
 
-  const openBookingDetail = (booking: BookingItem) => {
-    setSelectedBooking(booking);
+  const handleUpdateBooking = async () => {
+    if (!editingBooking) return;
+    try {
+      const response = await fetch(`${API_BASE}/bookings/booking/${editingBooking.bookingId}/update`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          guestName: editingBooking.guestName,
+          guestEmail: editingBooking.guestEmail,
+          guestPhone: editingBooking.guestPhone,
+          numOfAdults: editingBooking.numOfAdults,
+          numOfChildren: editingBooking.numOfChildren,
+          checkInDate: editingBooking.checkInDate,
+          checkOutDate: editingBooking.checkOutDate,
+          selectedDayLabel: editingBooking.selectedDayLabel,
+          selectedSlotTime: editingBooking.selectedSlotTime,
+          note: editingBooking.note,
+          transportType: editingBooking.transportType,
+        }),
+      });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("Không cập nhật được booking");
+      }
+      setMessage("Đã cập nhật booking thành công");
+      setEditingBooking(null);
+      setSelectedBooking(null);
+      await loadAdminData();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Cập nhật booking thất bại");
+    }
+  };
+
+  const handleSubmitBranch = async (event: FormEvent) => {
+    event.preventDefault();
+    try {
+      const endpoint =
+        editingBranchId == null
+          ? `${API_BASE}/api/admin/branches`
+          : `${API_BASE}/api/admin/branches/${editingBranchId}`;
+      const method = editingBranchId == null ? "POST" : "PUT";
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify(branchForm),
+      });
+
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Không lưu được chi nhánh");
+      }
+
+      setBranchForm({ name: "", description: "", address: "", phone: "", active: true });
+      setEditingBranchId(null);
+      setShowBranchForm(false);
+      setMessage("Lưu chi nhánh thành công");
+      await loadAdminData();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Lưu chi nhánh thất bại");
+    }
+  };
+
+  const handleEditBranch = (branch: Branch) => {
+    setEditingBranchId(branch.id);
+    setShowBranchForm(true);
+    setBranchForm({
+      name: branch.name,
+      description: branch.description,
+      address: branch.address,
+      phone: branch.phone,
+      active: branch.active,
+    });
+    setActiveTab("branches");
+  };
+
+  const handleDeleteBranch = async (branchId: number) => {
+    if (!confirm("Bạn có chắc muốn xóa chi nhánh này? Tất cả phòng thuộc chi nhánh cũng sẽ bị xóa.")) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/branches/${branchId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("Không xóa được chi nhánh");
+      }
+      setMessage("Đã xóa chi nhánh và các phòng liên quan");
+      await loadAdminData();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Xóa chi nhánh thất bại");
+    }
+  };
+
+  const handleToggleBranch = async (branchId: number, active: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/branches/${branchId}/toggle?active=${active}`, {
+        method: "PATCH",
+        headers: authHeaders,
+      });
+      if (response.status === 401) {
+        setMessage("Token hết hạn. Vui lòng đăng nhập lại.");
+        handleLogout();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("Không thay đổi được trạng thái chi nhánh");
+      }
+      setMessage(active ? "Đã kích hoạt chi nhánh" : "Đã tạm dừng chi nhánh");
+      await loadAdminData();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Thay đổi trạng thái thất bại");
+    }
   };
 
   const handleMainImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -482,633 +726,977 @@ export default function AdminPage() {
     }));
   };
 
-  return (
-    <main className="min-h-screen bg-[#f4f5f7] p-4 text-[#25335a] sm:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  if (!token) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f4f5f7] to-[#e8eaf0] p-4">
+        <section className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+          <div className="mb-6 text-center">
+            <h1 className="text-3xl font-black text-[#25335a]">Fiin Home Admin</h1>
+            <p className="mt-2 text-sm text-slate-500">Đăng nhập để quản lý hệ thống</p>
+          </div>
+          <form className="space-y-4" onSubmit={handleLogin}>
             <div>
-              <h1 className="text-2xl font-black">Admin Hotel</h1>
-              <p className="mt-1 text-sm text-slate-500">Thiết lập nhận booking, quản lý phòng, xem và xóa booking.</p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-              <span className="rounded-full bg-slate-100 px-3 py-1">{totalRooms} phòng</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{branchOptions.length} chi nhánh</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{featuredRooms} nổi bật</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{totalBookings} booking</span>
-            </div>
-          </div>
-          {message ? <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-[#1f4ca2]">{message}</p> : null}
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Tổng phòng</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{totalRooms}</p>
-          </div>
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Phòng nổi bật</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{featuredRooms}</p>
-          </div>
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Phòng đã đặt</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{bookedRooms}</p>
-          </div>
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">Booking</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{totalBookings}</p>
-          </div>
-        </section>
-
-        {!token ? (
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold">Đăng nhập Admin</h2>
-            <form className="mt-4 grid gap-3 sm:grid-cols-3" onSubmit={handleLogin}>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
-                placeholder="Email"
+                type="email"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-[#355eb7] focus:outline-none focus:ring-2 focus:ring-[#355eb7]/20"
+                placeholder="admin@hotel.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
               <input
                 type="password"
-                className="rounded-xl border border-slate-300 px-3 py-2"
-                placeholder="Mật khẩu"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-[#355eb7] focus:outline-none focus:ring-2 focus:ring-[#355eb7]/20"
+                placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                required
               />
-              <button className="rounded-xl bg-[#355eb7] px-4 py-2 font-semibold text-white" type="submit">
-                Đăng nhập
+            </div>
+            <button 
+              className="w-full rounded-xl bg-[#355eb7] px-4 py-3 font-semibold text-white transition hover:bg-[#2d4d99] active:scale-[0.98]" 
+              type="submit"
+            >
+              Đăng nhập
+            </button>
+          </form>
+          {message && (
+            <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-center text-sm text-[#1f4ca2]">{message}</p>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  const tabs = [
+    { id: "overview" as const, label: "Tổng quan", icon: "📊" },
+    { id: "branches" as const, label: "Chi nhánh", icon: "🏢" },
+    { id: "rooms" as const, label: "Quản lý phòng", icon: "🏠" },
+    { id: "bookings" as const, label: "Đặt phòng", icon: "📅" },
+    { id: "settings" as const, label: "Cài đặt", icon: "⚙️" },
+  ];
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-[#f4f5f7] to-[#e8eaf0] p-4 text-[#25335a] sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {/* Header */}
+        <header className="rounded-3xl bg-white p-6 shadow-lg">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-black">Fiin Home Admin</h1>
+              <p className="mt-1 text-sm text-slate-500">Quản lý hệ thống đặt phòng khách sạn</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                {totalRooms} phòng
+              </span>
+              <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700">
+                {totalBookings} booking
+              </span>
+              <span className="rounded-full bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                {branchOptions.length} chi nhánh
+              </span>
+              <button
+                onClick={handleLogout}
+                className="rounded-full bg-red-100 px-4 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-200 active:scale-95"
+              >
+                Đăng xuất
               </button>
-            </form>
-          </section>
-        ) : (
-          <>
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold">Thiết lập tiếp nhận đặt phòng</h2>
-              <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-center">
-                <label className="flex items-center gap-2 text-sm">
+            </div>
+          </div>
+          {message && (
+            <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-[#1f4ca2]">
+              {message}
+            </div>
+          )}
+        </header>
+
+        {/* Tabs Navigation */}
+        <nav className="flex gap-2 overflow-x-auto rounded-2xl bg-white p-2 shadow-lg">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                activeTab === tab.id
+                  ? "bg-[#355eb7] text-white shadow-md"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Tab Content */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white shadow-lg">
+                <p className="text-sm font-medium opacity-90">Tổng phòng</p>
+                <p className="mt-2 text-4xl font-black">{totalRooms}</p>
+              </div>
+              <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 p-6 text-white shadow-lg">
+                <p className="text-sm font-medium opacity-90">Phòng nổi bật</p>
+                <p className="mt-2 text-4xl font-black">{featuredRooms}</p>
+              </div>
+              <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-white shadow-lg">
+                <p className="text-sm font-medium opacity-90">Phòng đã đặt</p>
+                <p className="mt-2 text-4xl font-black">{bookedRooms}</p>
+              </div>
+              <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 p-6 text-white shadow-lg">
+                <p className="text-sm font-medium opacity-90">Tổng booking</p>
+                <p className="mt-2 text-4xl font-black">{totalBookings}</p>
+              </div>
+            </div>
+
+            {/* Branch Overview */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Chi nhánh</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {branchGroups.map((group) => (
+                  <div
+                    key={group.branch}
+                    className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 transition hover:border-[#355eb7] hover:shadow-md"
+                  >
+                    <h3 className="font-bold text-slate-900">{group.branch}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{group.count} phòng</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {group.roomNames.slice(0, 3).map((name) => (
+                        <span key={name} className="rounded-lg bg-white px-2 py-1 text-xs text-slate-700 shadow-sm">
+                          {name}
+                        </span>
+                      ))}
+                      {group.roomNames.length > 3 && (
+                        <span className="rounded-lg bg-slate-200 px-2 py-1 text-xs text-slate-600">
+                          +{group.roomNames.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Recent Bookings */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Booking gần đây</h2>
+              <div className="mt-4 space-y-3">
+                {bookings.slice(0, 5).map((booking) => (
+                  <div
+                    key={booking.bookingId}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div>
+                      <p className="font-semibold">{booking.guestName}</p>
+                      <p className="text-sm text-slate-600">
+                        {booking.selectedRoomName} • {booking.selectedDayLabel}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setActiveTab("bookings");
+                      }}
+                      className="rounded-lg bg-[#355eb7] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99]"
+                    >
+                      Xem
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === "branches" && (
+          <div className="space-y-6">
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Quản lý chi nhánh</h2>
+                  <p className="text-sm text-slate-500">Tổng {branches.length} chi nhánh</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingBranchId(null);
+                    setBranchForm({ name: "", description: "", address: "", phone: "", active: true });
+                    setShowBranchForm(!showBranchForm);
+                  }}
+                  className="rounded-xl bg-[#355eb7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99] active:scale-95"
+                >
+                  {showBranchForm ? "Đóng form" : "+ Thêm chi nhánh"}
+                </button>
+              </div>
+
+              {/* Branch Form */}
+              {showBranchForm && (
+                <form onSubmit={handleSubmitBranch} className="mt-6 rounded-xl border-2 border-[#355eb7] bg-blue-50 p-6">
+                  <h3 className="mb-4 text-lg font-bold">{editingBranchId ? "Sửa chi nhánh" : "Thêm chi nhánh mới"}</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Tên chi nhánh</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={branchForm.name}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, name: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={branchForm.phone}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Địa chỉ</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={branchForm.address}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Mô tả</label>
+                      <textarea
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        rows={3}
+                        value={branchForm.description}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, description: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={branchForm.active}
+                          onChange={(e) => setBranchForm((p) => ({ ...p, active: e.target.checked }))}
+                          className="h-5 w-5 rounded"
+                        />
+                        <span className="font-semibold">Chi nhánh đang hoạt động</span>
+                      </label>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Khi tắt, tất cả phòng thuộc chi nhánh này sẽ không hiển thị ở trang chủ
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                    >
+                      Lưu chi nhánh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBranchForm(false)}
+                      className="rounded-lg border border-slate-300 px-6 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Branch List */}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {branches.map((branch) => {
+                  const branchRoomCount = rooms.filter((room) => room.areaName === branch.name).length;
+                  return (
+                    <div key={branch.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h3 className="font-bold">{branch.name}</h3>
+                          <p className="text-sm text-slate-600">{branchRoomCount} phòng</p>
+                        </div>
+                        {branch.active ? (
+                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                            ✓ Hoạt động
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                            ✕ Tạm dừng
+                          </span>
+                        )}
+                      </div>
+                      {branch.address && <p className="mt-2 text-xs text-slate-600">📍 {branch.address}</p>}
+                      {branch.phone && <p className="mt-1 text-xs text-slate-600">📞 {branch.phone}</p>}
+                      {branch.description && <p className="mt-2 text-sm text-slate-700">{branch.description}</p>}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleEditBranch(branch)}
+                          className="flex-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => handleToggleBranch(branch.id, !branch.active)}
+                          className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                            branch.active
+                              ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                          }`}
+                        >
+                          {branch.active ? "Tạm dừng" : "Kích hoạt"}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBranch(branch.id)}
+                          className="rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === "rooms" && (
+          <div className="space-y-6">
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Quản lý phòng</h2>
+                  <p className="text-sm text-slate-500">
+                    {selectedBranch ? `${selectedBranch} • ${visibleRooms.length} phòng` : `Tất cả • ${totalRooms} phòng`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingRoomId(null);
+                    setRoomForm(selectedBranch ? { ...EMPTY_ROOM, areaName: selectedBranch } : EMPTY_ROOM);
+                    setGalleryItems([""]);
+                    setShowRoomForm(!showRoomForm);
+                  }}
+                  className="rounded-xl bg-[#355eb7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99] active:scale-95"
+                >
+                  {showRoomForm ? "Đóng form" : "+ Thêm phòng"}
+                </button>
+              </div>
+
+              {/* Branch Filter */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedBranch(null)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    selectedBranch === null
+                      ? "bg-[#355eb7] text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {branchOptions.map((branch) => (
+                  <button
+                    key={branch}
+                    onClick={() => setSelectedBranch(branch)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      selectedBranch === branch
+                        ? "bg-[#355eb7] text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {branch}
+                  </button>
+                ))}
+              </div>
+
+              {/* Room Form */}
+              {showRoomForm && (
+                <form onSubmit={handleSubmitRoom} className="mt-6 rounded-xl border-2 border-[#355eb7] bg-blue-50 p-6">
+                  <h3 className="mb-4 text-lg font-bold">{editingRoomId ? "Sửa phòng" : "Thêm phòng mới"}</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Loại phòng</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.roomType}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, roomType: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Giá phòng</label>
+                      <input
+                        type="number"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.roomPrice}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, roomPrice: Number(e.target.value) }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Chi nhánh</label>
+                      <select
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.areaName}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, areaName: e.target.value }))}
+                        required
+                      >
+                        <option value="">-- Chọn chi nhánh --</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.name}>
+                            {branch.name} {!branch.active && "(Tạm dừng)"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Tên hiển thị</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.displayName}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, displayName: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Mô tả</label>
+                      <textarea
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        rows={3}
+                        value={roomForm.description}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, description: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL ảnh chính</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.imageUrl}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, imageUrl: e.target.value }))}
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleMainImageUpload}
+                        className="mt-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL video</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        value={roomForm.videoUrl}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, videoUrl: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Tiện nghi (CSV)</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        placeholder="WiFi|TV|Điều hòa"
+                        value={roomForm.featuresCsv}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, featuresCsv: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Khung giờ (CSV)</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        placeholder="8h-12h|13h-17h"
+                        value={roomForm.slotTimesCsv}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, slotTimesCsv: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Giá khung giờ (CSV)</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        placeholder="200k|250k"
+                        value={roomForm.slotPricesCsv}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, slotPricesCsv: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Trạng thái slot (CSV)</label>
+                      <input
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        placeholder="Còn Trống|Đã Đặt"
+                        value={roomForm.slotStatusesCsv}
+                        onChange={(e) => setRoomForm((p) => ({ ...p, slotStatusesCsv: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4">
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={roomForm.showOnHome}
+                            onChange={(e) => setRoomForm((p) => ({ ...p, showOnHome: e.target.checked }))}
+                            className="mt-1 h-5 w-5 rounded"
+                          />
+                          <div className="flex-1">
+                            <span className="font-bold text-slate-900">Hiển thị ở Trang giới thiệu</span>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Phòng này sẽ xuất hiện trong phần "Trang giới thiệu" ở trang chủ. Tất cả phòng được tick sẽ hiển thị theo thứ tự ưu tiên.
+                            </p>
+                          </div>
+                        </label>
+                        {roomForm.showOnHome && (
+                          <div className="mt-3">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">
+                              Thứ tự ưu tiên (số nhỏ hơn hiển thị trước)
+                            </label>
+                            <input
+                              type="number"
+                              placeholder="Ví dụ: 1, 2, 3..."
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              value={roomForm.homeOrder}
+                              onChange={(e) => setRoomForm((p) => ({ ...p, homeOrder: Number(e.target.value) }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      type="submit"
+                      disabled={isUploadingMedia}
+                      className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99] disabled:opacity-50"
+                    >
+                      {isUploadingMedia ? "Đang tải..." : "Lưu phòng"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowRoomForm(false)}
+                      className="rounded-lg border border-slate-300 px-6 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Room List */}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {visibleRooms.map((room) => (
+                  <div key={room.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    {room.imageUrl && (
+                      <div className="mb-3 h-32 overflow-hidden rounded-lg bg-slate-200">
+                        <img src={room.imageUrl} alt={room.displayName} className="h-full w-full object-cover" />
+                      </div>
+                    )}
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h3 className="font-bold">{room.displayName || room.roomType}</h3>
+                        <p className="text-sm text-slate-600">{room.areaName}</p>
+                      </div>
+                      {room.showOnHome && (
+                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                          ✓ Trang giới thiệu
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-[#355eb7]">{room.roomPrice.toLocaleString()}đ</p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => handleEditRoom(room)}
+                        className="flex-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRoom(room.id)}
+                        className="flex-1 rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === "bookings" && (
+          <div className="space-y-6">
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Danh sách đặt phòng</h2>
+              <p className="text-sm text-slate-500">Tổng {totalBookings} booking</p>
+              
+              <div className="mt-4 space-y-3">
+                {bookings.map((booking) => (
+                  <div
+                    key={booking.bookingId}
+                    className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-slate-900">{booking.guestName}</p>
+                          <p className="text-sm text-slate-600">{booking.guestEmail}</p>
+                          <p className="text-sm text-slate-600">{booking.guestPhone}</p>
+                        </div>
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                          {booking.bookingConfirmationCode}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-lg bg-white px-2 py-1 font-semibold text-slate-700">
+                          {booking.selectedRoomName}
+                        </span>
+                        <span className="rounded-lg bg-white px-2 py-1 text-slate-600">
+                          {booking.branchName}
+                        </span>
+                        <span className="rounded-lg bg-white px-2 py-1 text-slate-600">
+                          {booking.selectedDayLabel} • {booking.selectedSlotTime}
+                        </span>
+                        <span className="rounded-lg bg-green-100 px-2 py-1 font-semibold text-green-700">
+                          {booking.selectedSlotPrice}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedBooking(booking)}
+                        className="rounded-lg bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                      >
+                        Chi tiết
+                      </button>
+                      <button
+                        onClick={() => setEditingBooking(booking)}
+                        className="rounded-lg bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-200"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBooking(booking.bookingId)}
+                        className="rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Edit Booking Modal */}
+            {editingBooking && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingBooking(null)}>
+                <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-4 flex items-start justify-between">
+                    <div>
+                      <h3 className="text-2xl font-bold">Sửa booking</h3>
+                      <p className="text-sm text-slate-500">Mã: {editingBooking.bookingConfirmationCode}</p>
+                    </div>
+                    <button
+                      onClick={() => setEditingBooking(null)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Họ tên</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.guestName}
+                          onChange={(e) => setEditingBooking({...editingBooking, guestName: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.guestEmail}
+                          onChange={(e) => setEditingBooking({...editingBooking, guestEmail: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.guestPhone}
+                          onChange={(e) => setEditingBooking({...editingBooking, guestPhone: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Phương tiện</label>
+                        <select
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.transportType}
+                          onChange={(e) => setEditingBooking({...editingBooking, transportType: e.target.value})}
+                        >
+                          <option value="Xe may">Xe máy</option>
+                          <option value="Xe o to">Xe ô tô</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số người lớn</label>
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.numOfAdults}
+                          onChange={(e) => setEditingBooking({...editingBooking, numOfAdults: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số trẻ em</label>
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.numOfChildren}
+                          onChange={(e) => setEditingBooking({...editingBooking, numOfChildren: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.selectedDayLabel}
+                          onChange={(e) => setEditingBooking({...editingBooking, selectedDayLabel: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Khung giờ</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.selectedSlotTime}
+                          onChange={(e) => setEditingBooking({...editingBooking, selectedSlotTime: e.target.value})}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ghi chú</label>
+                        <textarea
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          rows={3}
+                          value={editingBooking.note || ""}
+                          onChange={(e) => setEditingBooking({...editingBooking, note: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleUpdateBooking}
+                        className="flex-1 rounded-lg bg-green-500 px-4 py-3 font-semibold text-white transition hover:bg-green-600"
+                      >
+                        Lưu thay đổi
+                      </button>
+                      <button
+                        onClick={() => setEditingBooking(null)}
+                        className="rounded-lg border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Booking Detail Modal */}
+            {selectedBooking && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedBooking(null)}>
+                <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-4 flex items-start justify-between">
+                    <div>
+                      <h3 className="text-2xl font-bold">Chi tiết booking</h3>
+                      <p className="text-sm text-slate-500">Mã: {selectedBooking.bookingConfirmationCode}</p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedBooking(null)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <h4 className="font-bold text-slate-900">Thông tin khách</h4>
+                      <div className="mt-2 grid gap-2 text-sm">
+                        <p><span className="font-semibold">Họ tên:</span> {selectedBooking.guestName}</p>
+                        <p><span className="font-semibold">Email:</span> {selectedBooking.guestEmail}</p>
+                        <p><span className="font-semibold">SĐT:</span> {selectedBooking.guestPhone}</p>
+                        <p><span className="font-semibold">Số người:</span> {selectedBooking.totalNumOfGuests} ({selectedBooking.numOfAdults} người lớn, {selectedBooking.numOfChildren} trẻ em)</p>
+                        <p><span className="font-semibold">Phương tiện:</span> {selectedBooking.transportType}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <h4 className="font-bold text-slate-900">Thông tin đặt phòng</h4>
+                      <div className="mt-2 grid gap-2 text-sm">
+                        <p><span className="font-semibold">Chi nhánh:</span> {selectedBooking.branchName}</p>
+                        <p><span className="font-semibold">Phòng:</span> {selectedBooking.selectedRoomName}</p>
+                        <p><span className="font-semibold">Ngày:</span> {selectedBooking.selectedDayLabel}</p>
+                        <p><span className="font-semibold">Khung giờ:</span> {selectedBooking.selectedSlotTime}</p>
+                        <p><span className="font-semibold">Giá:</span> <span className="text-lg font-bold text-green-600">{selectedBooking.selectedSlotPrice}</span></p>
+                        <p><span className="font-semibold">Check-in:</span> {formatBookingDate(selectedBooking.checkInDate)}</p>
+                        <p><span className="font-semibold">Check-out:</span> {formatBookingDate(selectedBooking.checkOutDate)}</p>
+                      </div>
+                    </div>
+
+                    {selectedBooking.note && (
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <h4 className="font-bold text-slate-900">Ghi chú</h4>
+                        <p className="mt-2 text-sm text-slate-700">{selectedBooking.note}</p>
+                      </div>
+                    )}
+
+                    {selectedBooking.discountCode && (
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <h4 className="font-bold text-slate-900">Mã giảm giá</h4>
+                        <p className="mt-2 text-sm font-mono text-slate-700">{selectedBooking.discountCode}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleDeleteBooking(selectedBooking.bookingId)}
+                        className="flex-1 rounded-lg bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600"
+                      >
+                        Xóa booking này
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="space-y-6">
+            {/* Booking Settings */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Cài đặt nhận booking</h2>
+              <p className="text-sm text-slate-500">Bật/tắt chức năng đặt phòng trên website</p>
+              
+              <div className="mt-4 space-y-4">
+                <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={settings.acceptingBookings}
-                    onChange={(event) =>
-                      setSettings((prev) => ({ ...prev, acceptingBookings: event.target.checked }))
-                    }
+                    onChange={(e) => setSettings((prev) => ({ ...prev, acceptingBookings: e.target.checked }))}
+                    className="h-5 w-5 rounded"
                   />
-                  Đang nhận booking
+                  <span className="font-semibold">Đang nhận booking</span>
                 </label>
-                <input
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Thông báo khi tắt nhận booking"
-                  value={settings.bookingNotice ?? ""}
-                  onChange={(event) =>
-                    setSettings((prev) => ({ ...prev, bookingNotice: event.target.value }))
-                  }
-                />
-                <button className="rounded-xl bg-[#355eb7] px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveSettings}>
-                  Lưu cấu hình
+                
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Thông báo khi tắt booking
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    placeholder="Ví dụ: Hệ thống tạm ngưng nhận booking"
+                    value={settings.bookingNotice}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, bookingNotice: e.target.value }))}
+                  />
+                </div>
+
+                <button
+                  onClick={handleSaveSettings}
+                  className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                >
+                  Lưu cài đặt
                 </button>
               </div>
             </section>
 
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold">Cấu hình Footer trang chủ</h2>
-              <p className="mt-1 text-sm text-slate-500">Các trường này sẽ hiển thị trực tiếp ở phần footer ngoài trang khách hàng.</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700">Hotline</label>
+            {/* Footer Settings */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Cài đặt Footer</h2>
+              <p className="text-sm text-slate-500">Thông tin hiển thị ở footer trang chủ</p>
+              
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Hotline</label>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    placeholder="1900 2026"
                     value={footerForm.hotline}
-                    onChange={(event) => setFooterForm((prev) => ({ ...prev, hotline: event.target.value }))}
-                    placeholder="Ví dụ: 1900 2026"
+                    onChange={(e) => setFooterForm((prev) => ({ ...prev, hotline: e.target.value }))}
                   />
                 </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700">Mô tả footer</label>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Mô tả footer</label>
                   <textarea
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    rows={3}
+                    placeholder="Mô tả ngắn về khách sạn"
                     value={footerForm.footerDescription}
-                    onChange={(event) => setFooterForm((prev) => ({ ...prev, footerDescription: event.target.value }))}
-                    placeholder="Mô tả ngắn ở footer"
+                    onChange={(e) => setFooterForm((prev) => ({ ...prev, footerDescription: e.target.value }))}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-sm font-semibold text-slate-700">Footer tags</label>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Tags (phân tách bằng |)</label>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    placeholder="Khách sạn | Đặt phòng | Giá tốt"
                     value={footerForm.footerTagsText}
-                    onChange={(event) => setFooterForm((prev) => ({ ...prev, footerTagsText: event.target.value }))}
-                    placeholder="Phân tách bằng | hoặc dấu phẩy"
+                    onChange={(e) => setFooterForm((prev) => ({ ...prev, footerTagsText: e.target.value }))}
                   />
                 </div>
-                <div className="sm:col-span-2 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="block text-sm font-semibold text-slate-700">Footer buttons</label>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="block text-sm font-semibold text-slate-700">Footer Links</label>
                     <button
-                      type="button"
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                       onClick={addFooterLinkRow}
+                      className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
                     >
-                      Thêm nút
+                      + Thêm link
                     </button>
                   </div>
                   <div className="space-y-3">
                     {footerForm.footerLinks.map((row, index) => (
-                      <div key={`${index}-${row.label}`} className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1.2fr_auto] sm:items-center">
-                        <div className="space-y-1">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nhãn nút</label>
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2"
-                            value={row.label}
-                            onChange={(event) => updateFooterLinkRow(index, "label", event.target.value)}
-                            placeholder="Ví dụ: Facebook"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">URL</label>
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2"
-                            value={row.url}
-                            onChange={(event) => updateFooterLinkRow(index, "url", event.target.value)}
-                            placeholder="Ví dụ: https://facebook.com hoặc /bang-gia"
-                          />
-                        </div>
+                      <div key={index} className="flex gap-2">
+                        <input
+                          className="flex-1 rounded-lg border border-slate-300 px-3 py-2"
+                          placeholder="Nhãn"
+                          value={row.label}
+                          onChange={(e) => updateFooterLinkRow(index, "label", e.target.value)}
+                        />
+                        <input
+                          className="flex-1 rounded-lg border border-slate-300 px-3 py-2"
+                          placeholder="URL"
+                          value={row.url}
+                          onChange={(e) => updateFooterLinkRow(index, "url", e.target.value)}
+                        />
                         <button
-                          type="button"
-                          className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white sm:mt-6"
                           onClick={() => removeFooterLinkRow(index)}
+                          className="rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
                         >
                           Xóa
                         </button>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-slate-500">Mỗi dòng là một nút riêng. Nếu để trống URL, nút vẫn hiển thị nhưng không dẫn link.</p>
                 </div>
-                <div className="sm:col-span-2">
-                  <button
-                    type="button"
-                    className="rounded-xl bg-[#355eb7] px-4 py-2 text-sm font-semibold text-white"
-                    onClick={() => void handleSaveFooter()}
-                  >
-                    Lưu footer
-                  </button>
-                </div>
+
+                <button
+                  onClick={handleSaveFooter}
+                  className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                >
+                  Lưu footer
+                </button>
               </div>
             </section>
-
-            <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <section className="rounded-2xl bg-white p-5 shadow-sm">
-                  <div>
-                    <h2 className="text-lg font-bold">Chi nhánh</h2>
-                    <p className="mt-1 text-sm text-slate-500">Chọn chi nhánh để xem danh sách phòng thuộc nhóm đó.</p>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                    <button
-                      type="button"
-                      className={`rounded-full px-3 py-1 font-semibold transition ${selectedBranch === null ? "bg-[#355eb7] text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-                      onClick={() => setSelectedBranch(null)}
-                    >
-                      Tất cả chi nhánh
-                    </button>
-                    {branchOptions.map((branch) => (
-                      <button
-                        key={branch}
-                        type="button"
-                        className={`rounded-full px-3 py-1 font-semibold transition ${selectedBranch === branch ? "bg-[#355eb7] text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-                        onClick={() => setSelectedBranch(branch)}
-                      >
-                        {branch}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {branchGroups.map((group) => (
-                      <button
-                        key={group.branch}
-                        type="button"
-                        className={`w-full rounded-2xl border p-4 text-left transition ${selectedBranch === group.branch ? "border-[#355eb7] bg-blue-50" : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100"}`}
-                        onClick={() => setSelectedBranch(group.branch)}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-semibold text-slate-900">{group.branch}</h3>
-                            <p className="text-sm text-slate-500">{group.count} phòng</p>
-                          </div>
-                          <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600 shadow-sm">Nhóm chi nhánh</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {group.roomNames.map((name) => (
-                            <span key={`${group.branch}-${name}`} className="rounded-full bg-white px-3 py-1 text-xs text-slate-700 shadow-sm">
-                              {name}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-2xl bg-white p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-lg font-bold">Quản lý phòng</h2>
-                      <p className="text-sm text-slate-500">
-                        {selectedBranch ? `Đang xem: ${selectedBranch} • ${visibleRooms.length} phòng` : `Đang xem tất cả • ${totalRooms} phòng`}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-xl bg-[#355eb7] px-4 py-2 text-sm font-semibold text-white"
-                      onClick={() => {
-                        setEditingRoomId(null);
-                        setRoomForm(selectedBranch ? { ...EMPTY_ROOM, areaName: selectedBranch } : EMPTY_ROOM);
-                        setGalleryItems([""]);
-                        setShowRoomForm((prev) => !prev);
-                      }}
-                    >
-                      {showRoomForm ? "Đóng form" : "Thêm phòng mới"}
-                    </button>
-                  </div>
-
-                  {selectedBranch ? (
-                    <>
-                      <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-                        Mọi thao tác thêm hoặc sửa phòng sẽ gắn với chi nhánh <span className="font-semibold text-slate-900">{selectedBranch}</span>.
-                      </div>
-
-                      {showRoomForm ? (
-                        <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmitRoom}>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-semibold text-slate-700">Loại phòng</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Ví dụ: Luxury, Deluxe..." value={roomForm.roomType} onChange={(e) => setRoomForm((p) => ({ ...p, roomType: e.target.value }))} />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-semibold text-slate-700">Giá phòng</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Nhập giá" type="number" value={roomForm.roomPrice} onChange={(e) => setRoomForm((p) => ({ ...p, roomPrice: Number(e.target.value) }))} />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700">Chi nhánh đang áp dụng</label>
-                            <input className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-600" value={selectedBranch ?? ""} disabled />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-semibold text-slate-700">Tên hiển thị</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Tên hiển thị trên website" value={roomForm.displayName} onChange={(e) => setRoomForm((p) => ({ ...p, displayName: e.target.value }))} />
-                          </div>
-
-                          <div className="rounded-xl border border-slate-300 p-3 sm:col-span-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-slate-700">Ảnh chính của phòng</p>
-                              <span className="text-xs text-slate-500">Ảnh sẽ hiện ở vị trí đầu tiên</span>
-                            </div>
-                            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_180px]">
-                              <div className="space-y-1">
-                                <label className="block text-sm font-semibold text-slate-700">Link ảnh chính / base64</label>
-                                <input className="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Dán link ảnh hoặc base64" value={roomForm.imageUrl} onChange={(e) => setRoomForm((p) => ({ ...p, imageUrl: e.target.value }))} />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="block text-sm font-semibold text-slate-700">Tải ảnh chính từ máy</label>
-                                <input type="file" accept="image/*" className="w-full rounded-xl border border-slate-300 px-3 py-2" onChange={handleMainImageUpload} />
-                              </div>
-                            </div>
-                            <div className="mt-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-200">
-                                {roomForm.imageUrl ? <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${roomForm.imageUrl}")` }} /> : null}
-                              </div>
-                              <div className="min-w-0 text-sm text-slate-600">
-                                <div className="font-semibold text-slate-700">Xem trước ảnh chính</div>
-                                <p className="truncate text-xs text-slate-500">{roomForm.imageUrl || "Chưa có ảnh chính"}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl border border-slate-300 p-3 sm:col-span-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-700">Ảnh phụ / gallery</p>
-                                <p className="text-xs text-slate-500">Mỗi ô là 1 ảnh phụ, có thể thêm dần từng ảnh</p>
-                              </div>
-                              <div className="flex gap-2">
-                                <button type="button" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" onClick={addGalleryField}>
-                                  + Thêm 1 ảnh
-                                </button>
-                                <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-                                  Up nhiều ảnh
-                                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
-                                </label>
-                              </div>
-                            </div>
-
-                            <div className="mt-3 space-y-3">
-                              {galleryItems.map((item, index) => (
-                                <div key={`${index}-${item.slice(0, 20)}`} className="flex flex-col gap-3 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center">
-                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#dfe9ff] text-xs font-bold text-[#4361af]">
-                                    {index + 1}
-                                  </div>
-                                  <div className="flex h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-200">
-                                    {item ? (
-                                      <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${item}")` }} title={`Ảnh phụ ${index + 1}`} />
-                                    ) : (
-                                      <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">Chưa có ảnh</div>
-                                    )}
-                                  </div>
-                                  <input className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder={`Ảnh phụ ${index + 1} (link hoặc base64)`} value={item} onChange={(e) => updateGalleryField(index, e.target.value)} />
-                                  <button type="button" className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600" onClick={() => removeGalleryField(index)}>
-                                    Xóa
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-
-                            <p className="mt-3 text-xs text-slate-500">Ảnh phụ sẽ được lưu vào CSDL bằng dấu | và hiển thị dưới ảnh chính.</p>
-                          </div>
-
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700">Video URL</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Dán link video" value={roomForm.videoUrl} onChange={(e) => setRoomForm((p) => ({ ...p, videoUrl: e.target.value }))} />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700">Mô tả phòng</label>
-                            <textarea className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Nhập mô tả chi tiết" value={roomForm.description} onChange={(e) => setRoomForm((p) => ({ ...p, description: e.target.value }))} />
-                          </div>
-                          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-300 px-3 py-2 sm:col-span-2">
-                            <label className="flex items-center gap-2 text-sm font-medium">
-                              <input type="checkbox" checked={roomForm.showOnHome} onChange={(e) => setRoomForm((p) => ({ ...p, showOnHome: e.target.checked }))} />
-                              Hiển thị ở đầu trang
-                            </label>
-                            <div className="space-y-1">
-                              <label className="block text-xs font-semibold text-slate-700">Thứ tự hiển thị</label>
-                              <input className="w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm" type="number" min={0} placeholder="Thứ tự" value={roomForm.homeOrder} onChange={(e) => setRoomForm((p) => ({ ...p, homeOrder: Number(e.target.value) }))} />
-                            </div>
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700">Tiện ích CSV</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Phân tách bằng |" value={roomForm.featuresCsv} onChange={(e) => setRoomForm((p) => ({ ...p, featuresCsv: e.target.value }))} />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-semibold text-slate-700">Giờ slot CSV</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Ví dụ: 08:00|12:00" value={roomForm.slotTimesCsv} onChange={(e) => setRoomForm((p) => ({ ...p, slotTimesCsv: e.target.value }))} />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-semibold text-slate-700">Giá slot CSV</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Ví dụ: 420k|520k" value={roomForm.slotPricesCsv} onChange={(e) => setRoomForm((p) => ({ ...p, slotPricesCsv: e.target.value }))} />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700">Trạng thái slot CSV</label>
-                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Ví dụ: Còn trống|Đang chọn" value={roomForm.slotStatusesCsv} onChange={(e) => setRoomForm((p) => ({ ...p, slotStatusesCsv: e.target.value }))} />
-                          </div>
-                          <div className="flex gap-2 sm:col-span-2">
-                            <button className="rounded-xl bg-[#355eb7] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" type="submit" disabled={isUploadingMedia}>
-                              {editingRoomId == null ? "Thêm phòng" : "Cập nhật phòng"}
-                            </button>
-                            {editingRoomId != null ? (
-                              <button
-                                type="button"
-                                className="rounded-xl border border-slate-300 px-4 py-2 text-sm"
-                                onClick={() => {
-                                  setEditingRoomId(null);
-                                  setRoomForm(selectedBranch ? { ...EMPTY_ROOM, areaName: selectedBranch } : EMPTY_ROOM);
-                                  setGalleryItems([""]);
-                                }}
-                              >
-                                Hủy sửa
-                              </button>
-                            ) : null}
-                          </div>
-                        </form>
-                      ) : (
-                        <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Nhấn “Thêm phòng mới” để mở form.</p>
-                      )}
-
-                      <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-slate-50 text-left text-slate-600">
-                            <tr>
-                              <th className="px-3 py-3">ID</th>
-                              <th className="px-3 py-3">Chi nhánh</th>
-                              <th className="px-3 py-3">Tên phòng</th>
-                              <th className="px-3 py-3">Nổi bật</th>
-                              <th className="px-3 py-3">Ảnh / Video</th>
-                              <th className="px-3 py-3">Giá</th>
-                              <th className="px-3 py-3">Thao tác</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {visibleRooms.map((room) => (
-                              <tr key={room.id} className="border-t">
-                                <td className="px-3 py-3">{room.id}</td>
-                                <td className="px-3 py-3">{room.areaName}</td>
-                                <td className="px-3 py-3">{room.displayName || room.roomType}</td>
-                                <td className="px-3 py-3">
-                                  <div className="flex flex-col gap-1 text-xs">
-                                    <span className={`inline-flex w-fit rounded-full px-2 py-1 font-semibold ${room.showOnHome ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                                      {room.showOnHome ? "Home" : "Ẩn"}
-                                    </span>
-                                    <span className="text-slate-500">Thứ tự: {room.homeOrder ?? "-"}</span>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-3 text-xs text-slate-500">
-                                  <div>Ảnh chính: {room.imageUrl ? "Có" : "Không"}</div>
-                                  <div>Gallery: {room.galleryCsv ? room.galleryCsv.split("|").filter(Boolean).length : 0} ảnh</div>
-                                  <div>Video: {room.videoUrl ? "Có" : "Không"}</div>
-                                </td>
-                                <td className="px-3 py-3">{room.roomPrice}</td>
-                                <td className="px-3 py-3">
-                                  <div className="flex gap-2">
-                                    <button type="button" className="rounded-lg border px-2 py-1" onClick={() => handleEditRoom(room)}>
-                                      Sửa
-                                    </button>
-                                    <button type="button" className="rounded-lg border border-red-300 px-2 py-1 text-red-600" onClick={() => void handleDeleteRoom(room.id)}>
-                                      Xóa
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                            {visibleRooms.length === 0 ? (
-                              <tr>
-                                <td className="px-3 py-4 text-center text-slate-500" colSpan={7}>
-                                  Không có phòng nào trong chi nhánh này.
-                                </td>
-                              </tr>
-                            ) : null}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Hãy chọn một chi nhánh bên trái để thêm, sửa hoặc xóa phòng của chi nhánh đó.</p>
-                  )}
-                </section>
-              </div>
-
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold">Danh sách booking</h2>
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="px-2 py-2">Mã</th>
-                      <th className="px-2 py-2">Khách</th>
-                      <th className="px-2 py-2">Email</th>
-                      <th className="px-2 py-2">Phòng</th>
-                      <th className="px-2 py-2">Ngày</th>
-                      <th className="px-2 py-2">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((booking) => (
-                      <tr
-                        key={booking.bookingId}
-                        className="cursor-pointer border-b transition hover:bg-slate-50"
-                        onClick={() => openBookingDetail(booking)}
-                      >
-                        <td className="px-2 py-2">{booking.bookingConfirmationCode}</td>
-                        <td className="px-2 py-2">{booking.guestName}</td>
-                        <td className="px-2 py-2">{booking.guestEmail}</td>
-                        <td className="px-2 py-2">{booking.room?.roomType}</td>
-                        <td className="px-2 py-2">
-                          {formatBookingDate(booking.checkInDate)} - {formatBookingDate(booking.checkOutDate)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <button
-                            className="rounded-lg border border-red-300 px-2 py-1 text-red-600"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDeleteBooking(booking.bookingId);
-                            }}
-                          >
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {selectedBooking ? (
-              <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-3xl rounded-[28px] bg-white p-5 shadow-[0_30px_80px_rgba(15,23,42,0.25)] sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7f8ec6]">Chi tiết booking</div>
-                      <h3 className="mt-1 text-2xl font-black text-[#4f67b0]">{selectedBooking.bookingConfirmationCode}</h3>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                      onClick={() => setSelectedBooking(null)}
-                    >
-                      Đóng
-                    </button>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-700">Khách hàng</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <div><span className="font-semibold">Tên:</span> {selectedBooking.guestName}</div>
-                        <div><span className="font-semibold">Email:</span> {selectedBooking.guestEmail}</div>
-                        <div><span className="font-semibold">SĐT:</span> {selectedBooking.guestPhone || "-"}</div>
-                        <div><span className="font-semibold">Gửi email:</span> {selectedBooking.receiveBookingEmail ? "Có" : "Không"}</div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-700">Thông tin đặt phòng</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <div><span className="font-semibold">Phòng:</span> {selectedBooking.selectedRoomName || selectedBooking.room?.roomType || "-"}</div>
-                        <div><span className="font-semibold">Chi nhánh:</span> {selectedBooking.branchName || "-"}</div>
-                        <div><span className="font-semibold">Ngày:</span> {formatBookingDate(selectedBooking.checkInDate)} - {formatBookingDate(selectedBooking.checkOutDate)}</div>
-                        <div><span className="font-semibold">Khung giờ:</span> {selectedBooking.selectedSlotTime || "-"}</div>
-                        <div><span className="font-semibold">Giá giờ:</span> {selectedBooking.selectedSlotPrice || "-"}</div>
-                        <div><span className="font-semibold">Ngày chọn:</span> {selectedBooking.selectedDayLabel || "-"}</div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-700">Số lượng</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <div><span className="font-semibold">Người lớn:</span> {selectedBooking.numOfAdults}</div>
-                        <div><span className="font-semibold">Trẻ em:</span> {selectedBooking.numOfChildren}</div>
-                        <div><span className="font-semibold">Tổng khách:</span> {selectedBooking.totalNumOfGuests}</div>
-                        <div><span className="font-semibold">Phương tiện:</span> {selectedBooking.transportType || "-"}</div>
-                        <div><span className="font-semibold">Đồng ý điều khoản:</span> {selectedBooking.acceptedTerms ? "Có" : "Không"}</div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <div className="text-sm font-bold text-slate-700">Khuyến mãi & ghi chú</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <div><span className="font-semibold">Mã giảm giá:</span> {selectedBooking.discountCode || "-"}</div>
-                        <div><span className="font-semibold">Ghi chú:</span> {selectedBooking.note || "-"}</div>
-                        <div><span className="font-semibold">Ảnh CCCD trước:</span> {selectedBooking.idCardFrontImage ? "Có" : "Không"}</div>
-                        <div><span className="font-semibold">Ảnh CCCD sau:</span> {selectedBooking.idCardBackImage ? "Có" : "Không"}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-sm font-bold text-slate-700">Ảnh CCCD đầy đủ</div>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mặt trước</div>
-                        {selectedBooking.idCardFrontImage ? (
-                          <a
-                            href={selectedBooking.idCardFrontImage}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5"
-                          >
-                            <div
-                              className="aspect-[16/10] w-full bg-cover bg-center"
-                              style={{ backgroundImage: `url("${selectedBooking.idCardFrontImage}")` }}
-                            />
-                            <div className="border-t border-slate-200 px-3 py-2 text-center text-xs font-semibold text-[#4361af]">
-                              Bấm để mở ảnh gốc
-                            </div>
-                          </a>
-                        ) : (
-                          <div className="flex aspect-[16/10] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white text-sm text-slate-400">
-                            Chưa có ảnh mặt trước
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mặt sau</div>
-                        {selectedBooking.idCardBackImage ? (
-                          <a
-                            href={selectedBooking.idCardBackImage}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5"
-                          >
-                            <div
-                              className="aspect-[16/10] w-full bg-cover bg-center"
-                              style={{ backgroundImage: `url("${selectedBooking.idCardBackImage}")` }}
-                            />
-                            <div className="border-t border-slate-200 px-3 py-2 text-center text-xs font-semibold text-[#4361af]">
-                              Bấm để mở ảnh gốc
-                            </div>
-                          </a>
-                        ) : (
-                          <div className="flex aspect-[16/10] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white text-sm text-slate-400">
-                            Chưa có ảnh mặt sau
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </>
+          </div>
         )}
       </div>
     </main>

@@ -91,6 +91,38 @@ public class BookedRoomController {
         bookedRoomService.cancelBooking(bookingId);
     }
 
+    @PutMapping("/booking/{bookingId}/update")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateBooking(@PathVariable Long bookingId,
+                                          @RequestBody BookedRoom bookingRequest){
+        try{
+            BookedRoom existingBooking = bookedRoomService.getAllBookings().stream()
+                    .filter(b -> b.getBookingId().equals(bookingId))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("Booking not found with ID: " + bookingId));
+            
+            // Update editable fields
+            existingBooking.setGuestName(bookingRequest.getGuestName());
+            existingBooking.setGuestEmail(bookingRequest.getGuestEmail());
+            existingBooking.setGuestPhone(bookingRequest.getGuestPhone());
+            existingBooking.setNumOfAdults(bookingRequest.getNumOfAdults());
+            existingBooking.setNumOfChildren(bookingRequest.getNumOfChildren());
+            existingBooking.setTotalNumOfGuests(bookingRequest.getNumOfAdults() + bookingRequest.getNumOfChildren());
+            existingBooking.setSelectedDayLabel(bookingRequest.getSelectedDayLabel());
+            existingBooking.setSelectedSlotTime(bookingRequest.getSelectedSlotTime());
+            existingBooking.setNote(bookingRequest.getNote());
+            existingBooking.setTransportType(bookingRequest.getTransportType());
+            
+            // Use the update method from service
+            String confirmationCode = bookedRoomService.updateBooking(existingBooking);
+            return ResponseEntity.ok("Booking updated successfully! Code: " + confirmationCode);
+        }catch (ResourceNotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     private BookingResponse getBookingResponse(BookedRoom booking) {
         Room room = roomService.getRoomById(booking.getRoom().getId()).get();
         RoomResponse bookingResponse = new RoomResponse(

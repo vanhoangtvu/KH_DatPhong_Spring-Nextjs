@@ -36,13 +36,43 @@ public class HomePageController {
     }
 
     @GetMapping("/rooms/{roomId}")
-    public ResponseEntity<RoomDetailResponse> getRoomDetail(@PathVariable Long roomId) {
+    public ResponseEntity<RoomDetailResponse> getRoomDetail(
+            @PathVariable Long roomId,
+            @RequestParam(required = false) String date) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new com.hotelbookingproject.BLITCoding.exception.ResourceNotFoundException("Room not found with id " + roomId));
-        Set<String> bookedTimes = bookedRoomService.getAllBookingsByRoomId(roomId).stream()
-            .map(booking -> booking.getSelectedSlotTime() == null ? "" : booking.getSelectedSlotTime().trim())
-            .filter(value -> !value.isBlank())
-            .collect(Collectors.toSet());
+        
+        // Get bookings filtered by date if provided
+        Set<String> bookedTimes;
+        if (date != null && !date.isBlank()) {
+            bookedTimes = bookedRoomService.getAllBookingsByRoomId(roomId).stream()
+                .filter(booking -> {
+                    // Filter by checkInDate matching the provided date
+                    if (booking.getCheckInDate() == null) return false;
+                    String bookingDate = booking.getCheckInDate().toString(); // Format: yyyy-MM-dd
+                    System.out.println("Comparing booking date: " + bookingDate + " with requested date: " + date);
+                    return bookingDate.equals(date);
+                })
+                .map(booking -> {
+                    String slotTime = booking.getSelectedSlotTime() == null ? "" : booking.getSelectedSlotTime().trim();
+                    System.out.println("Booked slot time: " + slotTime + " for date: " + date);
+                    return slotTime;
+                })
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.toSet());
+            System.out.println("Total booked times for date " + date + ": " + bookedTimes.size());
+        } else {
+            // If no date provided, get today's bookings
+            String today = java.time.LocalDate.now().toString();
+            bookedTimes = bookedRoomService.getAllBookingsByRoomId(roomId).stream()
+                .filter(booking -> {
+                    if (booking.getCheckInDate() == null) return false;
+                    return booking.getCheckInDate().toString().equals(today);
+                })
+                .map(booking -> booking.getSelectedSlotTime() == null ? "" : booking.getSelectedSlotTime().trim())
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.toSet());
+        }
 
         return ResponseEntity.ok(new RoomDetailResponse(
                 room.getId(),

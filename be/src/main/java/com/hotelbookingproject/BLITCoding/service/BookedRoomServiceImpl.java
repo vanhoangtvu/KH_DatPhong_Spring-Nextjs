@@ -49,6 +49,7 @@ public class BookedRoomServiceImpl implements BookedRoomService {
 
     @Override
     public String saveBooking(Long roomId, BookedRoom bookingRequest) {
+        // Check if system is accepting bookings
         HomePageConfig config = homePageConfigRepository.findByConfigKey(CONFIG_KEY).orElse(null);
         if (config != null && !config.isAcceptingBookings()) {
             String message = config.getBookingNotice();
@@ -58,29 +59,78 @@ public class BookedRoomServiceImpl implements BookedRoomService {
                             : message
             );
         }
+        
+        // Validate terms acceptance
         if (!bookingRequest.isAcceptedTerms()) {
             throw new InvalidBookingException("Vui lòng xác nhận điều khoản và điều kiện trước khi đặt phòng.");
         }
-        if(bookingRequest.getCheckOutDate()
-                .isBefore(bookingRequest.getCheckInDate())){
-            throw new InvalidBookingException("Check in date must come" +
-                    "before check out date");
+        
+        // Validate dates
+        if(bookingRequest.getCheckOutDate().isBefore(bookingRequest.getCheckInDate())){
+            throw new InvalidBookingException("Ngày check-out phải sau ngày check-in");
         }
-        Room room = roomService.getRoomById(roomId).get();
-        List<BookedRoom> existingBookings = room.getBookings();
-        boolean roomIsAvailable = roomIsAvailable(bookingRequest, existingBookings);
-        if(roomIsAvailable){
-            room.addBooking(bookingRequest);
-            room.setSlotStatusesCsv(updateBookedSlotStatus(room, bookingRequest.getSelectedSlotTime()));
-            roomRepository.save(room);
-            bookedRoomRepository.save(bookingRequest);
-
-        }else {
-            throw new InvalidBookingException("Sorry, This room has been booked for the " +
-                    "selected date");
+        
+        // Get room
+        Room room = roomService.getRoomById(roomId)
+                .orElseThrow(() -> new InvalidBookingException("Phòng không tồn tại"));
+        
+        // CRITICAL: Check if the specific time slot is available for the specific date
+        boolean isAvailable = isTimeSlotAvailable(
+                room.getId(),
+                bookingRequest.getCheckInDate(),
+                bookingRequest.getSelectedSlotTime()
+        );
+        
+        if (!isAvailable) {
+            throw new InvalidBookingException(
+                    "Xin lỗi, khung giờ " + bookingRequest.getSelectedSlotTime() + 
+                    " ngày " + bookingRequest.getCheckInDate() + " đã được đặt. Vui lòng chọn khung giờ khác."
+            );
         }
+        
+        // Save booking
+        room.addBooking(bookingRequest);
+        bookedRoomRepository.save(bookingRequest);
+        
         return bookingRequest.getBookingConfirmationCode();
     }
+    
+    /**
+     * Check if a specific time slot is available for a specific date and room.
+     * This is the core logic to prevent double-booking.
+     * 
+     * @param roomId The room ID
+     * @param date The booking date
+     * @param timeSlot The time slot (e.g., "14h-16h")
+     * @return true if available, false if already booked
+     */
+    private boolean isTimeSlotAvailable(Long roomId, java.time.LocalDate date, String timeSlot) {
+        if (timeSlot == null || timeSlot.isBlank()) {
+            return true; // No specific time slot, allow booking
+        }
+        
+        // Get all bookings for this room
+        List<BookedRoom> existingBookings = bookedRoomRepository.findByRoomId(roomId);
+        
+        // Check if any existing booking has the same date AND same time slot
+        return existingBookings.stream()
+                .noneMatch(booking -> 
+                    booking.getCheckInDate() != null &&
+                    booking.getCheckInDate().equals(date) &&
+                    booking.getSelectedSlotTime() != null &&
+                    booking.getSelectedSlotTime().trim().equalsIgnoreCase(timeSlot.trim())
+                );
+    }
+
+    @Override
+    public String updateBooking(BookedRoom booking) {
+        if (booking == null || booking.getBookingId() == null) {
+            throw new InvalidBookingException("Invalid booking data");
+        }
+        bookedRoomRepository.save(booking);
+        return booking.getBookingConfirmationCode();
+    }
+
 
 
 
@@ -88,59 +138,4 @@ public class BookedRoomServiceImpl implements BookedRoomService {
     public BookedRoom findByBookingConfirmationCode(String confirmationCode) {
         return bookedRoomRepository.findByBookingConfirmationCode(confirmationCode);
     }
-
-
-    private boolean roomIsAvailable(BookedRoom bookingRequest,
-                                    List<BookedRoom> existingBookings) {
-        return existingBookings.stream()
-                .noneMatch(existingBooking ->
-                        bookingRequest.getCheckInDate().equals(existingBooking.getCheckInDate())
-                        || bookingRequest.getCheckOutDate().isBefore(existingBooking.getCheckOutDate())
-                        || (bookingRequest.getCheckInDate().isAfter(existingBooking.getCheckInDate())
-                        && bookingRequest.getCheckInDate().isBefore(existingBooking.getCheckOutDate()))
-                        || (bookingRequest.getCheckInDate().isBefore(existingBooking.getCheckInDate())
-
-                        && bookingRequest.getCheckOutDate().equals(existingBooking.getCheckOutDate()))
-                        || (bookingRequest.getCheckInDate().isBefore(existingBooking.getCheckInDate())
-
-                        && bookingRequest.getCheckOutDate().isAfter(existingBooking.getCheckOutDate()))
-
-                        || (bookingRequest.getCheckInDate().equals(existingBooking.getCheckOutDate())
-                        && bookingRequest.getCheckOutDate().equals(existingBooking.getCheckInDate()))
-
-                        || (bookingRequest.getCheckInDate().equals(existingBooking.getCheckOutDate())
-                        && bookingRequest.getCheckOutDate().equals(bookingRequest.getCheckInDate()))
-
-
-
-                        );
-
-
-
-    }
-
-    private String updateBookedSlotStatus(Room room, String bookedTime) {
-        if (bookedTime == null || bookedTime.isBlank()) {
-            return room.getSlotStatusesCsv();
-        }
-        List<String> statuses = Arrays.stream((room.getSlotStatusesCsv() == null ? "" : room.getSlotStatusesCsv()).split("\\|", -1))
-                .map(String::trim)
-                .collect(Collectors.toList());
-        List<String> times = Arrays.stream((room.getSlotTimesCsv() == null ? "" : room.getSlotTimesCsv()).split("\\|", -1))
-                .map(String::trim)
-                .collect(Collectors.toList());
-        if (times.isEmpty() || statuses.isEmpty()) {
-            return room.getSlotStatusesCsv();
-        }
-        int size = Math.min(times.size(), statuses.size());
-        for (int i = 0; i < size; i++) {
-            if (bookedTime.trim().equals(times.get(i))) {
-                statuses.set(i, "Đã Đặt");
-                break;
-            }
-        }
-        return String.join("|", statuses);
-    }
-
-
 }

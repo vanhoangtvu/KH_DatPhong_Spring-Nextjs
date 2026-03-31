@@ -601,38 +601,90 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
-              onClick={() => {
-                const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
-                setSelectedDay(pageData.days[idx]);
-              }}
-            >
-              ‹
-            </button>
-            {pageData.days.map((day) => (
+          {/* Day selector - fully responsive */}
+          <div className="mt-4">
+            {/* Desktop view: inline arrows with days */}
+            <div className="hidden md:flex md:items-center md:justify-center md:gap-2">
               <button
-                key={day}
-                onClick={() => setSelectedDay(day)}
-                className={`min-w-[78px] rounded-[14px] border px-3 py-3 text-xs font-semibold sm:min-w-[96px] sm:text-sm ${
-                  selectedDay === day
-                    ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2]"
-                    : "border-[#9ab0e1] bg-white text-[#4c67b2]"
-                }`}
+                className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
+                onClick={() => {
+                  const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
+                  setSelectedDay(pageData.days[idx]);
+                }}
               >
-                {day}
+                ‹
               </button>
-            ))}
-            <button
-              className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
-              onClick={() => {
-                const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
-                setSelectedDay(pageData.days[idx]);
-              }}
-            >
-              ›
-            </button>
+              {pageData.days.map((day) => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`min-w-[96px] rounded-[14px] border px-3 py-3 text-sm font-semibold transition-all ${
+                    selectedDay === day
+                      ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2]"
+                      : "border-[#9ab0e1] bg-white text-[#4c67b2]"
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+              <button
+                className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
+                onClick={() => {
+                  const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
+                  setSelectedDay(pageData.days[idx]);
+                }}
+              >
+                ›
+              </button>
+            </div>
+
+            {/* Mobile/Tablet view: scrollable with fixed arrows */}
+            <div className="relative md:hidden">
+              {/* Left arrow */}
+              <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center bg-gradient-to-r from-[#f5f5db] via-[#f5f5db] to-transparent pr-2">
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl font-black text-[#4c67b2] shadow-md transition-transform active:scale-90"
+                  onClick={() => {
+                    const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
+                    setSelectedDay(pageData.days[idx]);
+                  }}
+                >
+                  ‹
+                </button>
+              </div>
+
+              {/* Scrollable container */}
+              <div className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-2 px-11">
+                  {pageData.days.map((day) => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      className={`min-w-[78px] flex-shrink-0 rounded-[14px] border px-3 py-3 text-xs font-semibold transition-all ${
+                        selectedDay === day
+                          ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2] shadow-sm"
+                          : "border-[#9ab0e1] bg-white text-[#4c67b2]"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right arrow */}
+              <div className="absolute right-0 top-0 bottom-0 z-20 flex items-center bg-gradient-to-l from-[#f5f5db] via-[#f5f5db] to-transparent pl-2">
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl font-black text-[#4c67b2] shadow-md transition-transform active:scale-90"
+                  onClick={() => {
+                    const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
+                    setSelectedDay(pageData.days[idx]);
+                  }}
+                >
+                  ›
+                </button>
+              </div>
+            </div>
           </div>
 
           <h3 className="mt-6 text-center text-lg font-black uppercase tracking-[0.06em] text-[#4f67b0] sm:text-2xl">

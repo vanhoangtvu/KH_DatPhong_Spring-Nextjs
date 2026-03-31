@@ -37,6 +37,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
     private final HomePageConfigRepository homePageConfigRepository;
     private final RoomService roomService;
     private final BookedRoomService bookedRoomService;
+    private final BranchService branchService;
 
     @Override
     @Transactional
@@ -112,10 +113,27 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
     }
 
     private HomePageResponse buildResponse(HomePageConfig config, String dayLabel) {
-        List<Room> rooms = orderedRooms(roomService.getAllRooms());
+        List<Room> allRooms = roomService.getAllRooms();
+        
+        // Filter rooms by active branches
+        List<String> activeBranchNames = branchService.getAllBranches().stream()
+                .filter(branch -> branch.isActive())
+                .map(branch -> branch.getName())
+                .toList();
+        
+        List<Room> rooms = allRooms.stream()
+                .filter(room -> {
+                    String areaName = room.getAreaName();
+                    // If room has no area or area is in active branches, include it
+                    return areaName == null || areaName.isBlank() || activeBranchNames.contains(areaName);
+                })
+                .toList();
+        
+        rooms = orderedRooms(rooms);
         Map<Long, Set<String>> bookedSlotTimesByRoom = buildBookedSlotTimesByRoom(rooms, dayLabel);
 
-        List<String> days = splitCsv(config.getDaysCsv());
+        // Generate dynamic day labels based on current date
+        List<String> days = generateDynamicDays();
         List<AreaItem> areas = buildAreas(rooms);
         Map<String, List<RoomItem>> roomLists = buildRoomLists(rooms, bookedSlotTimesByRoom);
         List<IntroCard> introCards = buildIntroCards(rooms);
@@ -151,17 +169,90 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         );
     }
 
+    private List<String> generateDynamicDays() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        List<String> days = new ArrayList<>();
+        
+        // Add "Hôm nay" for today
+        days.add("Hôm nay");
+        
+        // Add next 6 days with Vietnamese day names
+        String[] vietnameseDays = {"Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
+        
+        for (int i = 1; i <= 6; i++) {
+            java.time.LocalDate futureDate = today.plusDays(i);
+            int dayOfWeek = futureDate.getDayOfWeek().getValue(); // 1=Monday, 7=Sunday
+            // Convert to Vietnamese format (Sunday=0, Monday=1, etc.)
+            int vietnameseIndex = dayOfWeek % 7; // Sunday becomes 0, Monday becomes 1, etc.
+            days.add(vietnameseDays[vietnameseIndex]);
+        }
+        
+        return days;
+    }
+
     private Map<Long, Set<String>> buildBookedSlotTimesByRoom(List<Room> rooms, String dayLabel) {
         Map<Long, Set<String>> result = new HashMap<>();
+        
+        // Calculate the actual date from dayLabel
+        java.time.LocalDate targetDate = calculateDateFromDayLabel(dayLabel);
+        
         for (Room room : rooms) {
             Set<String> bookedTimes = bookedRoomService.getAllBookingsByRoomId(room.getId()).stream()
-                    .filter(booking -> matchesDayLabel(dayLabel, booking.getSelectedDayLabel()))
+                    .filter(booking -> {
+                        // Filter by actual checkInDate, not just day label
+                        if (targetDate != null && booking.getCheckInDate() != null) {
+                            return booking.getCheckInDate().equals(targetDate);
+                        }
+                        // Fallback to day label matching if date is not available
+                        return matchesDayLabel(dayLabel, booking.getSelectedDayLabel());
+                    })
                     .map(booking -> Optional.ofNullable(booking.getSelectedSlotTime()).orElse("").trim())
                     .filter(value -> !value.isBlank())
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             result.put(room.getId(), bookedTimes);
         }
         return result;
+    }
+    
+    private java.time.LocalDate calculateDateFromDayLabel(String dayLabel) {
+        if (dayLabel == null || dayLabel.isBlank()) {
+            return java.time.LocalDate.now();
+        }
+        
+        java.time.LocalDate today = java.time.LocalDate.now();
+        
+        // If "Hôm nay", return today
+        if (dayLabel.toLowerCase().contains("hôm nay")) {
+            return today;
+        }
+        
+        // Map Vietnamese day names to DayOfWeek
+        String[] vietnameseDays = {"Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
+        int targetDayIndex = -1;
+        
+        for (int i = 0; i < vietnameseDays.length; i++) {
+            if (dayLabel.trim().equalsIgnoreCase(vietnameseDays[i])) {
+                targetDayIndex = i;
+                break;
+            }
+        }
+        
+        if (targetDayIndex == -1) {
+            return today; // Default to today if not found
+        }
+        
+        // Find the next occurrence of this day within the next 7 days
+        for (int i = 0; i <= 6; i++) {
+            java.time.LocalDate checkDate = today.plusDays(i);
+            int dayOfWeek = checkDate.getDayOfWeek().getValue(); // 1=Monday, 7=Sunday
+            int vietnameseIndex = dayOfWeek % 7; // Convert to Vietnamese index
+            
+            if (vietnameseIndex == targetDayIndex) {
+                return checkDate;
+            }
+        }
+        
+        return today; // Fallback
     }
 
     private boolean matchesDayLabel(String requestedDayLabel, String bookingDayLabel) {
@@ -194,7 +285,8 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
 
     private List<IntroCard> buildIntroCards(List<Room> rooms) {
         return rooms.stream()
-                .limit(3)
+                .filter(Room::isShowOnHome)
+                // Không giới hạn số lượng, hiển thị tất cả phòng được tick
                 .map(room -> new IntroCard(
                         safeDisplayName(room),
                         Optional.ofNullable(room.getDescription()).orElse(safeDisplayName(room)),
@@ -358,8 +450,8 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
     private HomePageConfig defaultConfig() {
         HomePageConfig config = new HomePageConfig();
         config.setConfigKey(CONFIG_KEY);
-        config.setBrandName("LuxeStay");
-        config.setBrandSubtitle("Đặt phòng mobile hiện đại");
+        config.setBrandName("Fiin Home");
+        config.setBrandSubtitle("Đặt phòng khách sạn hiện đại");
         config.setHotline("1900 2026");
         config.setHeroBadge("Mọi lúc, mọi nơi");
         config.setHeroTitle("Chọn phòng chill, đặt nhanh trên điện thoại.");

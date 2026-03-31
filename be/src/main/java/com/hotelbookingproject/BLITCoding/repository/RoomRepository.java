@@ -18,4 +18,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findAvailableRoomsByDateAndType(LocalDate checkInDate,
                                                LocalDate checkOutDate,
                                                String roomType);
+    
+    List<Room> findByAreaName(String areaName);
 }

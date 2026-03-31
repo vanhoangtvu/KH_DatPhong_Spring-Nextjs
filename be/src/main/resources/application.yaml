@@ -20,4 +20,4 @@ spring:
 
 jwt:
   secret: rRaAQAHZ4J0PN/fa6H8gTRYqr5n/eWa9ADqh8jwzBqY=
-  expiration: 900000
+  expiration: 28800000  # 8 hours (8 * 60 * 60 * 1000)

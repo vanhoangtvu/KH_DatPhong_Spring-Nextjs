@@ -1,0 +1,40 @@
+          <div className="mt-4 relative">
+            {/* Left arrow - fixed position */}
+            <button
+              className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white px-2.5 py-1.5 text-xl font-black text-[#4c67b2] shadow-lg transition-transform active:scale-90 sm:text-2xl"
+              onClick={() => {
+                const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
+                setSelectedDay(pageData.days[idx]);
+              }}
+            >
+              ‹
+            </button>
+            
+            {/* Scrollable days container with padding */}
+            <div className="flex gap-2 overflow-x-auto px-12 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center sm:px-14">
+              {pageData.days.map((day) => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`min-w-[78px] flex-shrink-0 rounded-[14px] border px-3 py-3 text-xs font-semibold sm:min-w-[96px] sm:text-sm ${
+                    selectedDay === day
+                      ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2]"
+                      : "border-[#9ab0e1] bg-white text-[#4c67b2]"
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+            
+            {/* Right arrow - fixed position */}
+            <button
+              className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white px-2.5 py-1.5 text-xl font-black text-[#4c67b2] shadow-lg transition-transform active:scale-90 sm:text-2xl"
+              onClick={() => {
+                const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
+                setSelectedDay(pageData.days[idx]);
+              }}
+            >
+              ›
+            </button>
+          </div>
