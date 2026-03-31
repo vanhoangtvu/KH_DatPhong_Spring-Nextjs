@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "LuxeStay | Đặt phòng khách sạn hiện đại",
   description:
     "Trang giao diện đặt khách sạn hiện đại, tối ưu mobile với hiệu ứng chuyển động mượt mà.",
+  icons: {
+    icon: "/LOGO%20FIIN.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 type AreaItem = {
@@ -393,8 +394,8 @@ export default function HomePage() {
       <section className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col px-3 pb-24 pt-3 sm:max-w-6xl sm:px-6 sm:pb-10 lg:max-w-7xl lg:px-8">
         <header className="mb-3 flex items-center justify-between rounded-[24px] bg-white/40 px-4 py-3 shadow-[0_10px_40px_rgba(70,98,172,0.08)] backdrop-blur-sm sm:mb-5 sm:px-5">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4361af] text-sm font-black text-white sm:h-10 sm:w-10">
-              LS
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm sm:h-11 sm:w-11">
+              <Image src="/LOGO%20FIIN.png" alt="Fiin Home logo" width={44} height={44} className="h-full w-full object-contain p-0.5" priority />
             </div>
             <div>
               <div className="text-sm font-bold tracking-[0.18em] text-[#4361af] uppercase sm:text-base sm:tracking-[0.22em]">
@@ -713,9 +714,7 @@ export default function HomePage() {
                           ? "bg-slate-200 text-slate-500"
                           : selectedSlots[room.name] === slot.time
                             ? "bg-[#4c67b2] text-white"
-                            : slot.status === "Đang chọn"
-                              ? "bg-[#4c67b2] text-white"
-                              : "bg-[#d5ecff] text-[#4c67b2]"
+                            : "bg-[#d5ecff] text-[#4c67b2]"
                       }`}
                     >
                       <div className="text-[11px] font-semibold sm:text-xs">{slot.time}</div>
@@ -770,8 +769,11 @@ export default function HomePage() {
         <footer className="mt-6 rounded-[30px] border border-white/70 bg-white/70 p-5 shadow-[0_10px_30px_rgba(70,98,172,0.06)] backdrop-blur sm:p-6">
           <div className="mx-auto flex max-w-4xl flex-col gap-5 text-center">
             <div className="space-y-2">
-              <div className="inline-flex rounded-full border border-[#dfe6fb] bg-[#f7f9ff] px-4 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-[#4f67b0]">
-                LuxeStay
+              <div className="inline-flex items-center gap-3 rounded-full border border-[#dfe6fb] bg-[#f7f9ff] px-4 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-[#4f67b0]">
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+                  <Image src="/LOGO%20FIIN.png" alt="Fiin Home logo" width={32} height={32} className="h-full w-full object-contain" />
+                </span>
+                <span>Fiin Home</span>
               </div>
               <p className="mx-auto max-w-2xl text-sm leading-6 text-[#7f8ec6]">{pageData.footerDescription}</p>
             </div>
