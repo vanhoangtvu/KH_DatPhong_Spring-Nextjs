@@ -26,6 +26,10 @@ public class BookingResponse {
 
     private String guestEmail;
 
+    private String guestPhone;
+
+    private boolean receiveBookingEmail;
+
 
     private int numOfAdults;
 
@@ -37,6 +41,28 @@ public class BookingResponse {
 
 
     private String bookingConfirmationCode;
+
+    private String transportType;
+
+    private String idCardFrontImage;
+
+    private String idCardBackImage;
+
+    private String discountCode;
+
+    private String note;
+
+    private boolean acceptedTerms;
+
+    private String branchName;
+
+    private String selectedRoomName;
+
+    private String selectedDayLabel;
+
+    private String selectedSlotTime;
+
+    private String selectedSlotPrice;
 
 
 

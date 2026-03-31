@@ -61,7 +61,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(
                         SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.
-                        requestMatchers("/auth/**", "/rooms/**","/bookings/**").permitAll()
+                    requestMatchers("/auth/**", "/rooms/**","/bookings/**", "/api/public/**").permitAll()
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/roles/**").hasRole("ADMIN")
                         .anyRequest().authenticated());
         http.authenticationProvider(authenticationProvider());

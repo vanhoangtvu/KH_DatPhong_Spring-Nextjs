@@ -1,0 +1,144 @@
+{
+  "brandName": "LuxeStay",
+  "brandSubtitle": "Đặt phòng mobile hiện đại",
+  "hotline": "1900 2026",
+  "heroBadge": "Mọi lúc, mọi nơi",
+  "heroTitle": "Chọn phòng chill, đặt nhanh trên điện thoại.",
+  "heroSubtitle": "Bố cục gọn, rõ, có thể vuốt qua để xem khu vực, phòng nổi bật và khung giờ.",
+  "introSectionTitle": "Trang giới thiệu",
+  "introSectionDescription": "Vuốt qua để xem các điểm nổi bật và cảm hứng lưu trú.",
+  "areas": [
+    {
+      "name": "Hẻm Duy Khổng",
+      "subtitle": "Chill, riêng tư, dễ chọn"
+    },
+    {
+      "name": "Căn PG2-11",
+      "subtitle": "Dãy Nhà Phố Vincom"
+    }
+  ],
+  "introCards": [
+    {
+      "title": "Coming soon Vincom",
+      "subtitle": "Không gian mới, ảnh lớn, cảm giác sang hơn và dễ xem trên mobile.",
+      "image": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80"
+    },
+    {
+      "title": "Chọn phòng nhanh",
+      "subtitle": "Kéo qua để xem các khu vực, phòng nổi bật và khung giờ có sẵn.",
+      "image": "https://images.unsplash.com/photo-1560184897-ae75f418493e?auto=format&fit=crop&w=1200&q=80"
+    },
+    {
+      "title": "Đặt trong vài chạm",
+      "subtitle": "Nút bấm lớn, trạng thái rõ ràng, tổng tiền cập nhật ngay khi chọn.",
+      "image": "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=80"
+    }
+  ],
+  "showcaseRooms": [
+    {
+      "title": "ROOM 1",
+      "cover": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+      "grid": [
+        "https://images.unsplash.com/photo-1560184897-ae75f418493e?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1502672023488-70e25813eb80?auto=format&fit=crop&w=600&q=80"
+      ],
+      "times": ["10:30 - 13:30", "14:00 - 17:00", "17:30 - 20:30", "21:00 - 10:00"]
+    },
+    {
+      "title": "ROOM 7",
+      "cover": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+      "grid": [
+        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1535827841776-24afc1e255ac?auto=format&fit=crop&w=600&q=80"
+      ],
+      "times": ["09:30 - 12:30", "13:00 - 16:00", "16:30 - 19:30", "20:00 - 09:00"]
+    }
+  ],
+  "days": ["Hôm nay", "Thứ 3", "Thứ 4", "Thứ 5"],
+  "bookingSectionTitle": "Chủ động thời gian",
+  "bookingSectionSubtitle": "mọi lúc, mọi nơi",
+  "roomLists": {
+    "Hẻm Duy Khổng": [
+      {
+        "name": "Phòng 01",
+        "image": "https://images.unsplash.com/photo-1560067174-8943bd5bcf26?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Điều hòa", "Tắm riêng", "Rèm", "Gương"],
+        "slots": [
+          {"time": "10:30 - 13:30", "price": "239k", "status": "Còn trống"},
+          {"time": "14:00 - 17:00", "price": "239k", "status": "Còn trống"},
+          {"time": "17:30 - 20:30", "price": "239k", "status": "Đang chọn"},
+          {"time": "21:00 - 10:00", "price": "359k", "status": "Còn trống"}
+        ]
+      },
+      {
+        "name": "Phòng 02",
+        "image": "https://images.unsplash.com/photo-1560184897-ae75f418493e?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Giường lớn", "Máy sấy", "Tủ đồ", "Gác lửng"],
+        "slots": [
+          {"time": "11:00 - 14:00", "price": "229k", "status": "Còn trống"},
+          {"time": "14:30 - 17:30", "price": "229k", "status": "Còn trống"},
+          {"time": "18:00 - 21:00", "price": "229k", "status": "Còn trống"},
+          {"time": "21:30 - 10:30", "price": "349k", "status": "Đang chọn"}
+        ]
+      },
+      {
+        "name": "Phòng 03",
+        "image": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Lối riêng", "Tranh treo", "Đèn ngủ", "View đẹp"],
+        "slots": [
+          {"time": "11:30 - 14:30", "price": "219k", "status": "Còn trống"},
+          {"time": "15:00 - 18:00", "price": "219k", "status": "Còn trống"},
+          {"time": "18:30 - 21:30", "price": "219k", "status": "Còn trống"},
+          {"time": "22:00 - 11:00", "price": "339k", "status": "Đang chọn"}
+        ]
+      }
+    ],
+    "Căn PG2-11": [
+      {
+        "name": "Phòng 11",
+        "image": "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Điều hòa", "Tắm riêng", "View phố", "Sạch đẹp"],
+        "slots": [
+          {"time": "11:00 - 14:00", "price": "259k", "status": "Còn trống"},
+          {"time": "14:30 - 17:30", "price": "259k", "status": "Còn trống"},
+          {"time": "18:00 - 21:00", "price": "259k", "status": "Đang chọn"},
+          {"time": "21:30 - 10:30", "price": "369k", "status": "Còn trống"}
+        ]
+      },
+      {
+        "name": "Phòng 12",
+        "image": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Giường lớn", "Máy sấy", "Cửa sổ", "Ấm cúng"],
+        "slots": [
+          {"time": "10:00 - 13:00", "price": "249k", "status": "Còn trống"},
+          {"time": "13:30 - 16:30", "price": "249k", "status": "Còn trống"},
+          {"time": "17:00 - 20:00", "price": "249k", "status": "Còn trống"},
+          {"time": "20:30 - 09:30", "price": "359k", "status": "Đang chọn"}
+        ]
+      },
+      {
+        "name": "Phòng 13",
+        "image": "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=600&q=80",
+        "features": ["Wi-Fi", "TV", "Lối riêng", "Đèn ngủ", "View đẹp", "Premium"],
+        "slots": [
+          {"time": "11:30 - 14:30", "price": "239k", "status": "Còn trống"},
+          {"time": "15:00 - 18:00", "price": "239k", "status": "Còn trống"},
+          {"time": "18:30 - 21:30", "price": "239k", "status": "Còn trống"},
+          {"time": "22:00 - 11:00", "price": "349k", "status": "Đang chọn"}
+        ]
+      }
+    ]
+  },
+  "legend": [
+    { "label": "Đã Đặt", "color": "bg-slate-300" },
+    { "label": "Còn Trống", "color": "bg-sky-100" },
+    { "label": "Đang chọn", "color": "bg-sky-500" }
+  ],
+  "footerDescription": "Dịch vụ lưu trú hiện đại, thân thiện mobile, bố cục rõ ràng và dễ đặt phòng.",
+  "footerTags": ["Căn PG2-11 · khu Vincom", "Hẻm Duy Khổng"],
+  "footerLinks": ["Facebook", "TikTok", "Bảng giá", "Nội quy"]
+}

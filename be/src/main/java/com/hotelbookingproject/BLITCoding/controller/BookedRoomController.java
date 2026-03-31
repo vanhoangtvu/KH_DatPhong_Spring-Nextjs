@@ -28,7 +28,7 @@ public class BookedRoomController {
     private final RoomService roomService;
 
     @GetMapping("/all-bookings")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<BookingResponse>> getAllBookings(){
         List<BookedRoom> bookings= bookedRoomService.getAllBookings();
         List<BookingResponse> bookingResponses = new ArrayList<>();
@@ -86,6 +86,7 @@ public class BookedRoomController {
 
 
     @DeleteMapping("/booking/{bookingId}/delete")
+    @PreAuthorize("hasRole('ADMIN')")
     public void cancelBooking(@PathVariable Long bookingId){
         bookedRoomService.cancelBooking(bookingId);
     }
@@ -94,14 +95,31 @@ public class BookedRoomController {
         Room room = roomService.getRoomById(booking.getRoom().getId()).get();
         RoomResponse bookingResponse = new RoomResponse(
                 room.getId(), room.getRoomType(),room.getRoomPrice());
-        return new BookingResponse(booking.getBookingId(),booking.getCheckInDate(),
-                booking.getCheckOutDate(),
-                booking.getGuestName(),
-                booking.getGuestEmail(),
-                booking.getNumOfAdults(),
-                booking.getNumOfChildren(),
-                booking.getTotalNumOfGuests(),
-                booking.getBookingConfirmationCode(), bookingResponse);
+        BookingResponse response = new BookingResponse();
+        response.setBookingId(booking.getBookingId());
+        response.setCheckInDate(booking.getCheckInDate());
+        response.setCheckOutDate(booking.getCheckOutDate());
+        response.setGuestName(booking.getGuestName());
+        response.setGuestEmail(booking.getGuestEmail());
+        response.setNumOfAdults(booking.getNumOfAdults());
+        response.setNumOfChildren(booking.getNumOfChildren());
+        response.setTotalNumOfGuests(booking.getTotalNumOfGuests());
+        response.setBookingConfirmationCode(booking.getBookingConfirmationCode());
+        response.setRoom(bookingResponse);
+        response.setGuestPhone(booking.getGuestPhone());
+        response.setReceiveBookingEmail(booking.isReceiveBookingEmail());
+        response.setTransportType(booking.getTransportType());
+        response.setIdCardFrontImage(booking.getIdCardFrontImage());
+        response.setIdCardBackImage(booking.getIdCardBackImage());
+        response.setDiscountCode(booking.getDiscountCode());
+        response.setNote(booking.getNote());
+        response.setAcceptedTerms(booking.isAcceptedTerms());
+        response.setBranchName(booking.getBranchName());
+        response.setSelectedRoomName(booking.getSelectedRoomName());
+        response.setSelectedDayLabel(booking.getSelectedDayLabel());
+        response.setSelectedSlotTime(booking.getSelectedSlotTime());
+        response.setSelectedSlotPrice(booking.getSelectedSlotPrice());
+        return response;
     }
 
 

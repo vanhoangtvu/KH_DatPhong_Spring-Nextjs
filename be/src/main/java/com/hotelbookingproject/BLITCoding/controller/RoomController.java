@@ -42,7 +42,7 @@ public class RoomController {
     private final BookedRoomService bookedRoomService;
 
     @PostMapping("/add/new-room")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> addNewRoom(@RequestParam("photo") MultipartFile photo,
                                                   @RequestParam("roomType") String roomType,
                                                    @RequestParam("roomPrice") BigDecimal roomPrice) throws SQLException, IOException {
@@ -80,14 +80,14 @@ public class RoomController {
 
 
     @DeleteMapping("/delete/room/{roomId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteRoom(@PathVariable Long roomId) throws SQLException {
         roomService.deleteRoom(roomId);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @PutMapping("/update/{roomId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> updateRoom(
            @PathVariable Long roomId,
             @RequestParam(required = false) String roomType,

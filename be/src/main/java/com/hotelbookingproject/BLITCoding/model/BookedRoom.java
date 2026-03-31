@@ -32,6 +32,12 @@ public class BookedRoom {
     @Column(name = "guest_Email")
     private String guestEmail;
 
+    @Column(name = "guest_phone")
+    private String guestPhone;
+
+    @Column(name = "receive_booking_email")
+    private boolean receiveBookingEmail;
+
     @Column(name = "adults")
     private int numOfAdults;
 
@@ -44,6 +50,39 @@ public class BookedRoom {
 
     @Column(name = "confirmation_code")
     private String bookingConfirmationCode;
+
+    @Column(name = "transport_type")
+    private String transportType;
+
+    @Column(name = "id_card_front", columnDefinition = "LONGTEXT")
+    private String idCardFrontImage;
+
+    @Column(name = "id_card_back", columnDefinition = "LONGTEXT")
+    private String idCardBackImage;
+
+    @Column(name = "discount_code")
+    private String discountCode;
+
+    @Column(name = "note_text", columnDefinition = "LONGTEXT")
+    private String note;
+
+    @Column(name = "accepted_terms")
+    private boolean acceptedTerms;
+
+    @Column(name = "branch_name")
+    private String branchName;
+
+    @Column(name = "selected_room_name")
+    private String selectedRoomName;
+
+    @Column(name = "selected_day_label")
+    private String selectedDayLabel;
+
+    @Column(name = "selected_slot_time")
+    private String selectedSlotTime;
+
+    @Column(name = "selected_slot_price")
+    private String selectedSlotPrice;
 
 
     @ManyToOne(fetch = FetchType.LAZY)
