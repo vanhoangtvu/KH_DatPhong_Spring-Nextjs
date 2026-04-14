@@ -139,6 +139,14 @@
     { "label": "Đang chọn", "color": "bg-sky-500" }
   ],
   "footerDescription": "Dịch vụ lưu trú hiện đại, thân thiện mobile, bố cục rõ ràng và dễ đặt phòng.",
+  "termsPageTitle": "Điều khoản và dịch vụ",
+  "termsPageSubtitle": "Thông tin sử dụng và phạm vi dịch vụ của hệ thống",
+  "termsPageIntro": "Trang này giúp khách hiểu rõ cách đặt phòng, trách nhiệm của khách hàng và các dịch vụ hỗ trợ.",
+  "termsSectionTitle": "Điều khoản sử dụng",
+  "termsSectionContent": "Khách hàng cần cung cấp thông tin chính xác khi đặt phòng, tuân thủ thời gian nhận phòng và thanh toán theo xác nhận hiển thị trên hệ thống. Fiin Home có quyền từ chối hoặc hủy giao dịch nếu phát hiện thông tin không hợp lệ, gian lận hoặc vi phạm nội quy.",
+  "servicesSectionTitle": "Dịch vụ cung cấp",
+  "servicesSectionContent": "Hệ thống hỗ trợ tra cứu phòng trống, đặt phòng theo khung giờ, lưu thông tin booking và quản lý lịch sử đặt phòng. Các dịch vụ bổ sung có thể được cập nhật theo từng thời điểm và hiển thị trực tiếp trên website.",
+  "termsPageNote": "Nếu cần hỗ trợ thêm, vui lòng liên hệ hotline hoặc gửi yêu cầu qua các kênh liên hệ ở footer.",
   "footerTags": ["Căn PG2-11 · khu Vincom", "Hẻm Duy Khổng"],
-  "footerLinks": ["Facebook", "TikTok", "Bảng giá", "Nội quy"]
+  "footerLinks": ["Facebook", "TikTok", "Bảng giá", "Nội quy", "Điều khoản & dịch vụ"]
 }

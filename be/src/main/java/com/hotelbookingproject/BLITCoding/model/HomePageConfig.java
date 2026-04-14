@@ -57,6 +57,36 @@ public class HomePageConfig {
     @Column(columnDefinition = "LONGTEXT", nullable = false)
     private String footerDescription;
 
+    @Column(nullable = false)
+    private String discountCode;
+
+    @Column(nullable = false)
+    private Integer discountPercent;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsPageTitle;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsPageSubtitle;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsPageIntro;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsSectionTitle;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsSectionContent;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String servicesSectionTitle;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String servicesSectionContent;
+
+    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    private String termsPageNote;
+
     @Column(columnDefinition = "LONGTEXT", nullable = false)
     private String footerTagsCsv;
 

@@ -47,6 +47,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         if (normalizeLegacyCopy(config)) {
             config = homePageConfigRepository.save(config);
         }
+        fillMissingDefaults(config);
         return buildResponse(config, null);
     }
 
@@ -58,6 +59,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         if (normalizeLegacyCopy(config)) {
             config = homePageConfigRepository.save(config);
         }
+        fillMissingDefaults(config);
         return buildResponse(config, dayLabel);
     }
 
@@ -87,6 +89,16 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         config.setBookingSectionTitle(homePageResponse.bookingSectionTitle());
         config.setBookingSectionSubtitle(homePageResponse.bookingSectionSubtitle());
         config.setFooterDescription(homePageResponse.footerDescription());
+        config.setDiscountCode(homePageResponse.discountCode());
+        config.setDiscountPercent(homePageResponse.discountPercent());
+        config.setTermsPageTitle(homePageResponse.termsPageTitle());
+        config.setTermsPageSubtitle(homePageResponse.termsPageSubtitle());
+        config.setTermsPageIntro(homePageResponse.termsPageIntro());
+        config.setTermsSectionTitle(homePageResponse.termsSectionTitle());
+        config.setTermsSectionContent(homePageResponse.termsSectionContent());
+        config.setServicesSectionTitle(homePageResponse.servicesSectionTitle());
+        config.setServicesSectionContent(homePageResponse.servicesSectionContent());
+        config.setTermsPageNote(homePageResponse.termsPageNote());
         config.setFooterTagsCsv(joinList(homePageResponse.footerTags()));
         config.setFooterLinksCsv(joinList(homePageResponse.footerLinks()));
         config.setFooterLinkUrlsCsv(joinList(homePageResponse.footerLinkUrls()));
@@ -105,6 +117,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         if (normalizeLegacyCopy(config)) {
             config = homePageConfigRepository.save(config);
         }
+        fillMissingDefaults(config);
         return new BookingSettingsResponse(config.isAcceptingBookings(), config.getBookingNotice());
     }
 
@@ -172,6 +185,16 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
                 config.isAcceptingBookings(),
                 config.getBookingNotice(),
                 config.getFooterDescription(),
+                config.getDiscountCode(),
+                config.getDiscountPercent(),
+                config.getTermsPageTitle(),
+                config.getTermsPageSubtitle(),
+                config.getTermsPageIntro(),
+                config.getTermsSectionTitle(),
+                config.getTermsSectionContent(),
+                config.getServicesSectionTitle(),
+                config.getServicesSectionContent(),
+                config.getTermsPageNote(),
                 splitCsv(config.getFooterTagsCsv()),
                 splitCsv(config.getFooterLinksCsv()),
                 splitCsvKeepEmpty(config.getFooterLinkUrlsCsv())
@@ -206,7 +229,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         java.time.LocalDate targetDate = calculateDateFromDayLabel(dayLabel);
         
         for (Room room : rooms) {
-            Set<String> bookedTimes = bookedRoomService.getAllBookingsByRoomId(room.getId()).stream()
+                Set<String> bookedTimes = bookedRoomService.getActiveBookingsByRoomId(room.getId()).stream()
                     .filter(booking -> {
                         // Filter by actual checkInDate, not just day label
                         if (targetDate != null && booking.getCheckInDate() != null) {
@@ -470,9 +493,19 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         config.setBookingSectionTitle("Chủ động thời gian");
         config.setBookingSectionSubtitle("Lịch trống cập nhật theo thời gian thực.");
         config.setFooterDescription("Dịch vụ lưu trú hiện đại, thân thiện mobile, bố cục rõ ràng và dễ đặt phòng.");
+        config.setDiscountCode("FIIN10");
+        config.setDiscountPercent(10);
+        config.setTermsPageTitle("Điều khoản và dịch vụ");
+        config.setTermsPageSubtitle("Thông tin sử dụng và phạm vi dịch vụ của hệ thống");
+        config.setTermsPageIntro("Trang này giúp khách hiểu rõ cách đặt phòng, trách nhiệm của khách hàng và các dịch vụ hỗ trợ.");
+        config.setTermsSectionTitle("Điều khoản sử dụng");
+        config.setTermsSectionContent("Khách hàng cần cung cấp thông tin chính xác khi đặt phòng, tuân thủ thời gian nhận phòng và thanh toán theo xác nhận hiển thị trên hệ thống. Fiin Home có quyền từ chối hoặc hủy giao dịch nếu phát hiện thông tin không hợp lệ, gian lận hoặc vi phạm nội quy.");
+        config.setServicesSectionTitle("Dịch vụ cung cấp");
+        config.setServicesSectionContent("Hệ thống hỗ trợ tra cứu phòng trống, đặt phòng theo khung giờ, lưu thông tin booking và quản lý lịch sử đặt phòng. Các dịch vụ bổ sung có thể được cập nhật theo từng thời điểm và hiển thị trực tiếp trên website.");
+        config.setTermsPageNote("Nếu cần hỗ trợ thêm, vui lòng liên hệ hotline hoặc gửi yêu cầu qua các kênh liên hệ ở footer.");
         config.setFooterTagsCsv("Căn PG2-11 · khu Vincom|Hẻm Duy Khổng");
-        config.setFooterLinksCsv("Facebook|TikTok|Bảng giá|Nội quy");
-        config.setFooterLinkUrlsCsv("https://facebook.com|https://tiktok.com|/bang-gia|/noi-quy");
+        config.setFooterLinksCsv("Facebook|TikTok|Bảng giá|Nội quy|Điều khoản & dịch vụ");
+        config.setFooterLinkUrlsCsv("https://facebook.com|https://tiktok.com|/bang-gia|/noi-quy|/dieu-khoan-dich-vu");
         config.setDaysCsv("Hôm nay|Thứ 3|Thứ 4|Thứ 5");
         config.setAcceptingBookings(true);
         config.setBookingNotice("Hiện tại hệ thống đang nhận đặt phòng bình thường.");
@@ -503,6 +536,14 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
                 "Lịch trống cập nhật theo thời gian thực."
         );
 
+        changed |= replaceIfMatches(config.getTermsPageTitle(), "Điều khoản và dịch vụ", value -> config.setTermsPageTitle(value), "Điều khoản và dịch vụ");
+        changed |= replaceIfMatches(
+            config.getTermsPageSubtitle(),
+            "Thông tin sử dụng và phạm vi dịch vụ của hệ thống",
+            value -> config.setTermsPageSubtitle(value),
+            "Thông tin sử dụng và phạm vi dịch vụ của hệ thống"
+        );
+
         return changed;
     }
 
@@ -530,6 +571,16 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         if (isBlank(config.getBookingSectionTitle())) config.setBookingSectionTitle(defaults.getBookingSectionTitle());
         if (isBlank(config.getBookingSectionSubtitle())) config.setBookingSectionSubtitle(defaults.getBookingSectionSubtitle());
         if (isBlank(config.getFooterDescription())) config.setFooterDescription(defaults.getFooterDescription());
+        if (isBlank(config.getDiscountCode())) config.setDiscountCode(defaults.getDiscountCode());
+        if (config.getDiscountPercent() == null || config.getDiscountPercent() <= 0) config.setDiscountPercent(defaults.getDiscountPercent());
+        if (isBlank(config.getTermsPageTitle())) config.setTermsPageTitle(defaults.getTermsPageTitle());
+        if (isBlank(config.getTermsPageSubtitle())) config.setTermsPageSubtitle(defaults.getTermsPageSubtitle());
+        if (isBlank(config.getTermsPageIntro())) config.setTermsPageIntro(defaults.getTermsPageIntro());
+        if (isBlank(config.getTermsSectionTitle())) config.setTermsSectionTitle(defaults.getTermsSectionTitle());
+        if (isBlank(config.getTermsSectionContent())) config.setTermsSectionContent(defaults.getTermsSectionContent());
+        if (isBlank(config.getServicesSectionTitle())) config.setServicesSectionTitle(defaults.getServicesSectionTitle());
+        if (isBlank(config.getServicesSectionContent())) config.setServicesSectionContent(defaults.getServicesSectionContent());
+        if (isBlank(config.getTermsPageNote())) config.setTermsPageNote(defaults.getTermsPageNote());
         if (isBlank(config.getFooterTagsCsv())) config.setFooterTagsCsv(defaults.getFooterTagsCsv());
         if (isBlank(config.getFooterLinksCsv())) config.setFooterLinksCsv(defaults.getFooterLinksCsv());
         if (isBlank(config.getFooterLinkUrlsCsv())) config.setFooterLinkUrlsCsv(defaults.getFooterLinkUrlsCsv());

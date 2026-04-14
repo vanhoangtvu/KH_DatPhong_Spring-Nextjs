@@ -418,6 +418,12 @@ export default function HomePage() {
           <div className="rounded-full bg-[#8b5e3c] px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm">
             {pageData.hotline}
           </div>
+          <Link
+            href="/tra-cuu-booking"
+            className="hidden rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-3 py-2 text-xs font-semibold text-[#8b5e3c] shadow-sm transition hover:bg-[#f0dfc9] sm:inline-flex sm:px-4 sm:text-sm"
+          >
+            Tra cứu booking
+          </Link>
         </header>
 
         <section className="mb-5 text-center sm:mb-7">
@@ -427,6 +433,20 @@ export default function HomePage() {
           <p className="mx-auto mt-2 max-w-xl text-sm text-[#9c7450] sm:text-base">
             {pageData.heroSubtitle}
           </p>
+          <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/tra-cuu-booking"
+              className="inline-flex items-center justify-center rounded-full bg-[#8b5e3c] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(122,84,47,0.18)] transition hover:bg-[#734a2d] active:scale-95"
+            >
+              Tra cứu lịch đặt phòng
+            </Link>
+            <Link
+              href="#booking-section"
+              className="inline-flex items-center justify-center rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-5 py-3 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#f0dfc9] active:scale-95"
+            >
+              Đặt phòng ngay
+            </Link>
+          </div>
         </section>
 
         <section className="mb-5">
@@ -883,6 +903,9 @@ export default function HomePage() {
                       </a>
                     );
                   })}
+                  <Link href="/dieu-khoan-dich-vu" className="inline-flex min-h-9 items-center rounded-full border border-[#dfe6fb] bg-white px-4 py-1.5 shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95">
+                    Điều khoản & dịch vụ
+                  </Link>
                 </div>
               </div>
             </div>

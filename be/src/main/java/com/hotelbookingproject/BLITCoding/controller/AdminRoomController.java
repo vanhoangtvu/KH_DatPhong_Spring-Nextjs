@@ -5,6 +5,7 @@ import com.hotelbookingproject.BLITCoding.model.Room;
 import com.hotelbookingproject.BLITCoding.repository.RoomRepository;
 import com.hotelbookingproject.BLITCoding.request.AdminRoomRequest;
 import com.hotelbookingproject.BLITCoding.response.AdminRoomResponse;
+import com.hotelbookingproject.BLITCoding.service.BookedRoomService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import java.util.List;
 public class AdminRoomController {
 
     private final RoomRepository roomRepository;
+    private final BookedRoomService bookedRoomService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -95,7 +97,7 @@ public class AdminRoomController {
                 room.getSlotTimesCsv(),
                 room.getSlotPricesCsv(),
                 room.getSlotStatusesCsv(),
-                room.isBooked()
+                !bookedRoomService.getActiveBookingsByRoomId(room.getId()).isEmpty()
         );
     }
 }

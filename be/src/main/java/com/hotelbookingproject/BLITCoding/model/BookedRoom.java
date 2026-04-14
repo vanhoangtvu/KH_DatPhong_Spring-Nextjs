@@ -16,6 +16,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class BookedRoom {
 
+    public static final String DEFAULT_BOOKING_STATUS = "Đã đặt";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long bookingId;
@@ -83,6 +85,9 @@ public class BookedRoom {
 
     @Column(name = "selected_slot_price")
     private String selectedSlotPrice;
+
+    @Column(name = "booking_status")
+    private String bookingStatus = DEFAULT_BOOKING_STATUS;
 
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -129,6 +129,9 @@ public class BookedRoomController {
             existingBooking.setSelectedSlotTime(bookingRequest.getSelectedSlotTime());
             existingBooking.setNote(bookingRequest.getNote());
             existingBooking.setTransportType(bookingRequest.getTransportType());
+            existingBooking.setIdCardFrontImage(bookingRequest.getIdCardFrontImage());
+            existingBooking.setIdCardBackImage(bookingRequest.getIdCardBackImage());
+            existingBooking.setBookingStatus(bookingRequest.getBookingStatus());
             
             // Use the update method from service
             String confirmationCode = bookedRoomService.updateBooking(existingBooking);
@@ -168,6 +171,9 @@ public class BookedRoomController {
         response.setSelectedDayLabel(booking.getSelectedDayLabel());
         response.setSelectedSlotTime(booking.getSelectedSlotTime());
         response.setSelectedSlotPrice(booking.getSelectedSlotPrice());
+        response.setBookingStatus(booking.getBookingStatus() == null || booking.getBookingStatus().isBlank()
+            ? BookedRoom.DEFAULT_BOOKING_STATUS
+            : booking.getBookingStatus());
         return response;
     }
 

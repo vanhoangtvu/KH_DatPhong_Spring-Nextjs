@@ -151,7 +151,7 @@ public class RoomController {
 
     private RoomResponse getRoomResponse(Room room) {
 
-        List<BookedRoom> bookings = getAllBookingsByRoomId(room.getId());
+        List<BookedRoom> bookings = bookedRoomService.getActiveBookingsByRoomId(room.getId());
 //        List<BookingResponse> bookingInfo = bookings.stream()
 //                .map(booking -> new BookingResponse(booking.getBookingId()
 //                ,booking.getCheckInDate(), booking.getCheckOutDate()
@@ -168,7 +168,7 @@ public class RoomController {
         }
 
         return new RoomResponse(room.getId(),room.getRoomType(),room.getRoomPrice(),
-                room.isBooked(),photoBytes);
+            !bookings.isEmpty(),photoBytes);
 
     }
 

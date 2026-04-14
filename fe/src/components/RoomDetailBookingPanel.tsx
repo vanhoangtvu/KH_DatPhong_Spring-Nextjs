@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { compressImageFileToDataUrl } from "@/lib/imageCompression";
 
 type Slot = {
   time: string;
@@ -48,14 +49,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
-const toBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("Không đọc được file ảnh"));
-    reader.readAsDataURL(file);
-  });
-
 export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slots }: Props) {
   const router = useRouter();
   const availableSlots = useMemo(
@@ -70,6 +63,15 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
 
   const selectedSlot = slots.find((slot) => slot.time === selectedTime);
   const selectedPrice = selectedSlot?.price ?? "";
+  const isBookingFormComplete = Boolean(
+    selectedSlot &&
+      bookingForm.guestName.trim() &&
+      bookingForm.guestPhone.trim() &&
+      bookingForm.guestEmail.trim() &&
+      bookingForm.idCardFrontImage &&
+      bookingForm.idCardBackImage &&
+      bookingForm.acceptedTerms
+  );
 
   const handleBook = async () => {
     if (!selectedSlot) {
@@ -141,8 +143,8 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const base64 = await toBase64(file);
-      setBookingForm((prev) => ({ ...prev, [field]: base64 }));
+      const compressed = await compressImageFileToDataUrl(file);
+      setBookingForm((prev) => ({ ...prev, [field]: compressed }));
     } catch (error) {
       setMessage("Không thể tải ảnh lên");
     }
@@ -374,7 +376,7 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </button>
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || !isBookingFormComplete}
               onClick={() => void handleBook()}
               className="flex-1 rounded-2xl bg-[#425ca7] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             >

@@ -22,20 +22,43 @@ type RoomDetailResponse = {
 
 type HomePageResponse = {
   roomLists: Record<string, { roomId: number; name: string }[]>;
+  discountCode?: string;
+  discountPercent?: number;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+const getSelectedDateStorageKey = (roomId: string) => `fiin-home-room-date-${roomId}`;
+
 export default function RoomDetailPage() {
   const params = useParams();
+  const roomIdParam = params.roomId as string;
   const [room, setRoom] = useState<RoomDetailResponse | null>(null);
   const [allRooms, setAllRooms] = useState<{ roomId: number; name: string }[]>([]);
+  const [promoCode, setPromoCode] = useState<string | undefined>(undefined);
+  const [promoPercent, setPromoPercent] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    // Default to today
-    return new Date().toISOString().split('T')[0];
-  });
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !roomIdParam) {
+      return;
+    }
+
+    const storedDate = window.sessionStorage.getItem(getSelectedDateStorageKey(roomIdParam));
+    if (storedDate) {
+      setSelectedDate(storedDate);
+    }
+    setIsHydrated(true);
+  }, [roomIdParam]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && roomIdParam && isHydrated) {
+      window.sessionStorage.setItem(getSelectedDateStorageKey(roomIdParam), selectedDate);
+    }
+  }, [roomIdParam, selectedDate, isHydrated]);
 
   useEffect(() => {
     const loadRoomData = async () => {
@@ -43,7 +66,6 @@ export default function RoomDetailPage() {
         setLoading(true);
         setError(null);
         
-        const roomIdParam = params.roomId as string;
         const roomId = Number(roomIdParam);
         
         console.log('Loading room:', roomId, 'for date:', selectedDate);
@@ -78,6 +100,8 @@ export default function RoomDetailPage() {
           const rooms = Object.values(homeData.roomLists).flat();
           console.log('All rooms loaded:', rooms.length);
           setAllRooms(rooms);
+          setPromoCode(homeData.discountCode);
+          setPromoPercent(homeData.discountPercent);
         }
       } catch (err) {
         console.error('Error loading room:', err);
@@ -88,7 +112,7 @@ export default function RoomDetailPage() {
     };
 
     loadRoomData();
-  }, [params.roomId, selectedDate]);
+  }, [roomIdParam, selectedDate]);
 
   if (loading) {
     return (
@@ -115,5 +139,5 @@ export default function RoomDetailPage() {
     );
   }
 
-  return <RoomDetailClient key={`${room.roomId}-${selectedDate}`} room={room} allRooms={allRooms} selectedDate={selectedDate} onDateChange={setSelectedDate} />;
+  return <RoomDetailClient key={`${room.roomId}-${selectedDate}`} room={room} allRooms={allRooms} selectedDate={selectedDate} onDateChange={setSelectedDate} promoCode={promoCode} promoPercent={promoPercent} />;
 }

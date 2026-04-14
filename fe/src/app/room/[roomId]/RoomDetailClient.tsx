@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { compressImageFileToDataUrl } from "@/lib/imageCompression";
 
 type RoomDetailResponse = {
   roomId: number;
@@ -38,6 +39,36 @@ type BookingFormState = {
   acceptedTerms: boolean;
 };
 
+type BookingDraftState = {
+  guestName: string;
+  guestPhone: string;
+  guestEmail: string;
+  receiveBookingEmail: boolean;
+  guestCount: number;
+  transportType: "Xe may" | "Xe o to";
+  discountCode: string;
+  note: string;
+  acceptedTerms: boolean;
+};
+
+const parsePriceToVnd = (value: string) => {
+  if (!value) return 0;
+  const normalized = value.trim().toLowerCase().replace(/đ|\s/g, "");
+  const isKUnit = normalized.endsWith("k");
+  const digits = normalized.replace(/[^0-9]/g, "");
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return Number.isFinite(amount) ? (isKUnit ? amount * 1000 : amount) : 0;
+};
+
+const formatPriceLikeOriginal = (originalText: string, amount: number) => {
+  if (!originalText) return "";
+  if (originalText.toLowerCase().includes("k")) {
+    return `${Math.round(amount / 1000)}k`;
+  }
+  return `${amount.toLocaleString("vi-VN")}đ`;
+};
+
 const EMPTY_FORM: BookingFormState = {
   guestName: "",
   guestPhone: "",
@@ -53,6 +84,31 @@ const EMPTY_FORM: BookingFormState = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+const getBookingStorageKey = (roomId: number) => `fiin-home-booking-${roomId}`;
+const getScrollStorageKey = (roomId: number) => `fiin-home-room-scroll-${roomId}`;
+
+const safeParseBookingForm = (value: string | null): BookingFormState | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Partial<BookingDraftState>;
+    return {
+      guestName: typeof parsed.guestName === "string" ? parsed.guestName : "",
+      guestPhone: typeof parsed.guestPhone === "string" ? parsed.guestPhone : "",
+      guestEmail: typeof parsed.guestEmail === "string" ? parsed.guestEmail : "",
+      receiveBookingEmail: typeof parsed.receiveBookingEmail === "boolean" ? parsed.receiveBookingEmail : true,
+      guestCount: typeof parsed.guestCount === "number" ? parsed.guestCount : 2,
+      transportType: parsed.transportType === "Xe o to" ? "Xe o to" : "Xe may",
+      discountCode: typeof parsed.discountCode === "string" ? parsed.discountCode : "",
+      note: typeof parsed.note === "string" ? parsed.note : "",
+      acceptedTerms: typeof parsed.acceptedTerms === "boolean" ? parsed.acceptedTerms : false,
+      idCardFrontImage: "",
+      idCardBackImage: "",
+    };
+  } catch {
+    return null;
+  }
+};
 
 const getYoutubeEmbedUrl = (url: string) => {
   if (!url) return "";
@@ -76,12 +132,16 @@ export default function RoomDetailClient({
   room, 
   allRooms, 
   selectedDate, 
-  onDateChange 
+  onDateChange,
+  promoCode,
+  promoPercent,
 }: { 
   room: RoomDetailResponse; 
   allRooms: RoomItem[];
   selectedDate: string;
   onDateChange: (date: string) => void;
+  promoCode?: string;
+  promoPercent?: number;
 }) {
   const router = useRouter();
   const [selectedSlot, setSelectedSlot] = useState("");
@@ -91,6 +151,8 @@ export default function RoomDetailClient({
   const [message, setMessage] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [scrollRestored, setScrollRestored] = useState(false);
 
   console.log('RoomDetailClient rendered with room:', room.roomId, room.displayName || room.roomType);
 
@@ -102,6 +164,9 @@ export default function RoomDetailClient({
   const embedUrl = useMemo(() => getYoutubeEmbedUrl(room.videoUrl), [room.videoUrl]);
   const roomPriceLabel = typeof room.roomPrice === "number" ? room.roomPrice.toLocaleString("vi-VN") : String(room.roomPrice);
   const availableSlots = useMemo(() => room.slots.filter((s) => s.status !== "Đã Đặt" && s.status !== "Hết chỗ"), [room.slots]);
+  const normalizedPromoCode = promoCode?.trim().toUpperCase() ?? "";
+  const normalizedInputCode = bookingForm.discountCode.trim().toUpperCase();
+  const isPromoCodeMatched = Boolean(normalizedPromoCode) && normalizedInputCode === normalizedPromoCode;
 
   const currentIndex = allRooms.findIndex((r) => r.roomId === room.roomId);
   const previousRoom = currentIndex > 0 ? allRooms[currentIndex - 1] : (allRooms.length > 1 ? allRooms[allRooms.length - 1] : null);
@@ -149,23 +214,103 @@ export default function RoomDetailClient({
   };
 
   const selectedSlotData = room.slots.find((s) => s.time === selectedSlot);
+  const isBookingFormComplete = Boolean(
+    selectedSlotData &&
+      bookingForm.guestName.trim() &&
+      bookingForm.guestPhone.trim() &&
+      bookingForm.guestEmail.trim() &&
+      bookingForm.idCardFrontImage &&
+      bookingForm.idCardBackImage &&
+      bookingForm.acceptedTerms
+  );
+  const promoSavingsText = useMemo(() => {
+    if (!selectedSlotData || !isPromoCodeMatched || !promoPercent || promoPercent <= 0) return null;
+    const originalAmount = parsePriceToVnd(selectedSlotData.price);
+    if (!originalAmount) return null;
+    const discountedAmount = Math.max(0, Math.round(originalAmount * (100 - promoPercent) / 100));
+    return formatPriceLikeOriginal(selectedSlotData.price, discountedAmount);
+  }, [selectedSlotData, isPromoCodeMatched, promoPercent, bookingForm.discountCode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const stored = window.sessionStorage.getItem(getBookingStorageKey(room.roomId));
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as {
+          selectedSlot?: string;
+          showBookingForm?: boolean;
+          bookingForm?: Partial<BookingFormState>;
+        };
+        if (typeof parsed.selectedSlot === "string") {
+          setSelectedSlot(parsed.selectedSlot);
+        }
+        if (typeof parsed.showBookingForm === "boolean") {
+          setShowBookingForm(parsed.showBookingForm);
+        }
+        if (parsed.bookingForm) {
+          setBookingForm((prev) => ({ ...prev, ...parsed.bookingForm }));
+        }
+      } catch {
+        // Ignore malformed draft data.
+      }
+    }
+
+    setDraftHydrated(true);
+  }, [room.roomId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !draftHydrated) return;
+    const { idCardFrontImage: _frontImage, idCardBackImage: _backImage, ...persistedForm } = bookingForm;
+    window.sessionStorage.setItem(
+      getBookingStorageKey(room.roomId),
+      JSON.stringify({
+        bookingForm: persistedForm,
+        selectedSlot,
+        showBookingForm,
+      })
+    );
+  }, [room.roomId, bookingForm, selectedSlot, showBookingForm, draftHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !draftHydrated || scrollRestored) return;
+
+    const storedScroll = window.sessionStorage.getItem(getScrollStorageKey(room.roomId));
+    if (!storedScroll) {
+      setScrollRestored(true);
+      return;
+    }
+
+    const targetScroll = Number(storedScroll);
+    window.sessionStorage.removeItem(getScrollStorageKey(room.roomId));
+
+    if (!Number.isFinite(targetScroll)) {
+      setScrollRestored(true);
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: targetScroll, behavior: "instant" });
+      setScrollRestored(true);
+    });
+  }, [room.roomId, draftHydrated, scrollRestored]);
 
   // Reset state when room changes
   useEffect(() => {
     console.log('Room changed, resetting state. New room:', room.roomId);
-    setSelectedSlot("");
-    setShowBookingForm(false);
-    setBookingForm(EMPTY_FORM);
     setMessage(null);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    setScrollRestored(false);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   }, [room.roomId]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: "idCardFrontImage" | "idCardBackImage") => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const base64 = await toBase64(file);
-      setBookingForm((prev) => ({ ...prev, [field]: base64 }));
+      const compressed = await compressImageFileToDataUrl(file);
+      setBookingForm((prev) => ({ ...prev, [field]: compressed }));
     } catch {
       setMessage("Không thể tải ảnh lên");
     }
@@ -564,6 +709,17 @@ export default function RoomDetailClient({
                       onChange={(e) => setBookingForm((prev) => ({ ...prev, discountCode: e.target.value }))}
                       placeholder="Nhập mã giảm giá (nếu có)"
                     />
+                    {normalizedPromoCode ? (
+                      <p className="mt-1 text-[11px] text-[#9c7450] sm:text-xs">
+                        Mã hợp lệ: <span className="font-semibold text-[#8b5e3c]">{normalizedPromoCode}</span>
+                        {promoPercent ? ` - giảm ${promoPercent}%` : ""}
+                      </p>
+                    ) : null}
+                    {promoSavingsText ? (
+                      <p className="mt-1 text-[11px] font-semibold text-emerald-700 sm:text-xs">
+                        Giá sau giảm: {promoSavingsText}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div>
@@ -584,7 +740,21 @@ export default function RoomDetailClient({
                       onChange={(e) => setBookingForm((prev) => ({ ...prev, acceptedTerms: e.target.checked }))}
                       className="mt-0.5"
                     />
-                    <span>Tôi xác nhận đã đọc và đồng ý với điều khoản và điều kiện của Fiin Home</span>
+                    <span>
+                      Tôi xác nhận đã đọc và đồng ý với{' '}
+                      <Link
+                        href="/dieu-khoan-dich-vu"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            window.sessionStorage.setItem(getScrollStorageKey(room.roomId), String(window.scrollY));
+                          }
+                        }}
+                        className="font-semibold text-[#8b5e3c] underline decoration-[#d4aa7a] underline-offset-2 hover:text-[#734a2d]"
+                      >
+                        điều khoản và điều kiện
+                      </Link>{' '}
+                      của Fiin Home
+                    </span>
                   </label>
 
                   {message && <p className="text-xs text-red-600 sm:text-sm">{message}</p>}
@@ -602,7 +772,7 @@ export default function RoomDetailClient({
                     </button>
                     <button
                       type="button"
-                      disabled={submitting}
+                      disabled={submitting || !isBookingFormComplete}
                       onClick={handleBooking}
                       className="flex-1 rounded-xl bg-[#8b5e3c] px-3 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#734a2d] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-4 sm:py-3"
                     >

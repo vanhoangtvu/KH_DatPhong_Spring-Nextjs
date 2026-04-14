@@ -45,7 +45,7 @@ public class HomePageController {
         // Get bookings filtered by date if provided
         Set<String> bookedTimes;
         if (date != null && !date.isBlank()) {
-            bookedTimes = bookedRoomService.getAllBookingsByRoomId(roomId).stream()
+            bookedTimes = bookedRoomService.getActiveBookingsByRoomId(roomId).stream()
                 .filter(booking -> {
                     // Filter by checkInDate matching the provided date
                     if (booking.getCheckInDate() == null) return false;
@@ -64,7 +64,7 @@ public class HomePageController {
         } else {
             // If no date provided, get today's bookings
             String today = java.time.LocalDate.now().toString();
-            bookedTimes = bookedRoomService.getAllBookingsByRoomId(roomId).stream()
+            bookedTimes = bookedRoomService.getActiveBookingsByRoomId(roomId).stream()
                 .filter(booking -> {
                     if (booking.getCheckInDate() == null) return false;
                     return booking.getCheckInDate().toString().equals(today);
@@ -86,7 +86,7 @@ public class HomePageController {
                 room.getVideoUrl(),
                 splitCsv(room.getFeaturesCsv()),
                 buildSlots(room, bookedTimes),
-                room.isBooked()
+                !bookedRoomService.getActiveBookingsByRoomId(room.getId()).isEmpty()
         ));
     }
 

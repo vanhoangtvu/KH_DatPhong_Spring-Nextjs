@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { CalendarDays, Mail, MapPin, Phone, ReceiptText, Ticket, Users } from "lucide-react";
+import { compressImageFileToDataUrl } from "@/lib/imageCompression";
 
 type AdminRoom = {
   id: number;
@@ -39,57 +41,117 @@ type BookingItem = {
   guestPhone: string;
   receiveBookingEmail: boolean;
   numOfAdults: number;
-  numOfChildren: number;
-  totalNumOfGuests: number;
-  bookingConfirmationCode: string;
-  transportType: string;
-  idCardFrontImage: string;
-  idCardBackImage: string;
-  discountCode: string;
-  note: string;
-  acceptedTerms: boolean;
-  branchName: string;
-  selectedRoomName: string;
-  selectedDayLabel: string;
-  selectedSlotTime: string;
-  selectedSlotPrice: string;
-  room: {
-    id: number;
-    roomType: string;
-    roomPrice: number;
-  };
-};
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số người lớn</label>
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.numOfAdults}
+                          onChange={(e) => setEditingBooking({...editingBooking, numOfAdults: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số trẻ em</label>
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.numOfChildren}
+                          onChange={(e) => setEditingBooking({...editingBooking, numOfChildren: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.selectedDayLabel}
+                          onChange={(e) => setEditingBooking({...editingBooking, selectedDayLabel: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Khung giờ</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.selectedSlotTime}
+                          onChange={(e) => setEditingBooking({...editingBooking, selectedSlotTime: e.target.value})}
+                        />
+                      </div>
+                      <div className="sm:col-span-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="block text-sm font-semibold text-slate-700">Ảnh CCCD/CMND</label>
+                          <span className="text-xs text-slate-500">Tải ảnh mới để thay thế dữ liệu hiện tại</span>
+                        </div>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600">Mặt trước</label>
+                            {editingBooking.idCardFrontImage ? (
+                              <img
+                                src={editingBooking.idCardFrontImage}
+                                alt="CCCD mặt trước"
+                                className="h-40 w-full rounded-xl border border-slate-200 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-40 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs text-slate-400">
+                                Chưa có ảnh
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => void handleBookingImageUpload(e, "idCardFrontImage")}
+                              className="block w-full text-xs"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600">Mặt sau</label>
+                            {editingBooking.idCardBackImage ? (
+                              <img
+                                src={editingBooking.idCardBackImage}
+                                alt="CCCD mặt sau"
+                                className="h-40 w-full rounded-xl border border-slate-200 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-40 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs text-slate-400">
+                                Chưa có ảnh
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => void handleBookingImageUpload(e, "idCardBackImage")}
+                              className="block w-full text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ghi chú</label>
+                        <textarea
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          rows={3}
+                          value={editingBooking.note || ""}
+                          onChange={(e) => setEditingBooking({...editingBooking, note: e.target.value})}
+                        />
+                      </div>
+                    </div>
 
-type BookingSettings = {
-  acceptingBookings: boolean;
-  bookingNotice: string;
-};
-
-type FooterLinkRow = {
-  label: string;
-  url: string;
-};
-
-type HomePageConfigData = {
-  brandName: string;
-  brandSubtitle: string;
-  hotline: string;
-  heroBadge: string;
-  heroTitle: string;
-  heroSubtitle: string;
-  introSectionTitle: string;
-  introSectionDescription: string;
-  areas: Array<{ name: string; subtitle: string }>;
-  introCards: Array<{ title: string; subtitle: string; image: string }>;
-  showcaseRooms: Array<{ title: string; cover: string; grid: string[]; times: string[] }>;
-  days: string[];
-  bookingSectionTitle: string;
-  bookingSectionSubtitle: string;
-  roomLists: Record<string, Array<{ roomId: number; name: string; image: string; gallery: string[]; videoUrl: string; features: string[]; slots: Array<{ time: string; price: string; status: string }> }>>;
-  legend: Array<{ label: string; color: string }>;
-  acceptingBookings: boolean;
-  bookingNotice: string;
-  footerDescription: string;
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleUpdateBooking}
+                        className="flex-1 rounded-lg bg-green-500 px-4 py-3 font-semibold text-white transition hover:bg-green-600"
+                      >
+                        Lưu thay đổi
+                      </button>
+                      <button
+                        onClick={() => setEditingBooking(null)}
+                        className="rounded-lg border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+  servicesSectionTitle: string;
+  servicesSectionContent: string;
+  termsPageNote: string;
   footerTags: string[];
   footerLinks: string[];
   footerLinkUrls: string[];
@@ -100,6 +162,22 @@ type FooterForm = {
   footerDescription: string;
   footerTagsText: string;
   footerLinks: FooterLinkRow[];
+};
+
+type LegalForm = {
+  termsPageTitle: string;
+  termsPageSubtitle: string;
+  termsPageIntro: string;
+  termsSectionTitle: string;
+  termsSectionContent: string;
+  servicesSectionTitle: string;
+  servicesSectionContent: string;
+  termsPageNote: string;
+};
+
+type PromotionForm = {
+  discountCode: string;
+  discountPercent: number;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -155,6 +233,37 @@ const formatBookingDate = (value: string) => {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("vi-VN");
 };
 
+const normalizeBookingStatus = (value?: string) => value?.trim() || "Đã đặt";
+
+const BOOKING_STATUS_OPTIONS = [
+  "Đã đặt",
+  "Đã xác nhận",
+  "Đã check-in",
+  "Đã check-out",
+  "Đã hoàn thành",
+  "Đã hủy",
+];
+
+const getBookingStatusBadgeClass = (value?: string) => {
+  const status = normalizeBookingStatus(value);
+  if (status === "Đã hoàn thành") return "bg-emerald-100 text-emerald-700";
+  if (status === "Đã hủy") return "bg-rose-100 text-rose-700";
+  if (status === "Đã check-in") return "bg-sky-100 text-sky-700";
+  if (status === "Đã check-out") return "bg-indigo-100 text-indigo-700";
+  if (status === "Đã xác nhận") return "bg-blue-100 text-blue-700";
+  return "bg-amber-100 text-amber-700";
+};
+
+const getBookingStatusRingClass = (value?: string) => {
+  const status = normalizeBookingStatus(value);
+  if (status === "Đã hoàn thành") return "ring-emerald-200 bg-emerald-50/70";
+  if (status === "Đã hủy") return "ring-rose-200 bg-rose-50/70";
+  if (status === "Đã check-in") return "ring-sky-200 bg-sky-50/70";
+  if (status === "Đã check-out") return "ring-indigo-200 bg-indigo-50/70";
+  if (status === "Đã xác nhận") return "ring-blue-200 bg-blue-50/70";
+  return "ring-amber-200 bg-amber-50/70";
+};
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "branches" | "rooms" | "bookings" | "settings">("overview");
   const [token, setToken] = useState("");
@@ -190,6 +299,20 @@ export default function AdminPage() {
     footerDescription: "",
     footerTagsText: "",
     footerLinks: [{ label: "", url: "" }],
+  });
+  const [promotionForm, setPromotionForm] = useState<PromotionForm>({
+    discountCode: "",
+    discountPercent: 10,
+  });
+  const [legalForm, setLegalForm] = useState<LegalForm>({
+    termsPageTitle: "",
+    termsPageSubtitle: "",
+    termsPageIntro: "",
+    termsSectionTitle: "",
+    termsSectionContent: "",
+    servicesSectionTitle: "",
+    servicesSectionContent: "",
+    termsPageNote: "",
   });
 
   const [roomForm, setRoomForm] = useState(EMPTY_ROOM);
@@ -236,6 +359,17 @@ export default function AdminPage() {
     setBookings([]);
     setSettings({ acceptingBookings: true, bookingNotice: "" });
     setHomePageConfig(null);
+    setPromotionForm({ discountCode: "", discountPercent: 10 });
+    setLegalForm({
+      termsPageTitle: "",
+      termsPageSubtitle: "",
+      termsPageIntro: "",
+      termsSectionTitle: "",
+      termsSectionContent: "",
+      servicesSectionTitle: "",
+      servicesSectionContent: "",
+      termsPageNote: "",
+    });
     setMessage("Đã đăng xuất thành công");
   };
 
@@ -282,6 +416,20 @@ export default function AdminPage() {
           footerDescription: homePageData.footerDescription ?? "",
           footerTagsText: (homePageData.footerTags ?? []).join(" | "),
           footerLinks: buildFooterLinkRows(homePageData.footerLinks ?? [], homePageData.footerLinkUrls ?? []),
+        });
+        setPromotionForm({
+          discountCode: homePageData.discountCode ?? "",
+          discountPercent: homePageData.discountPercent ?? 10,
+        });
+        setLegalForm({
+          termsPageTitle: homePageData.termsPageTitle ?? "",
+          termsPageSubtitle: homePageData.termsPageSubtitle ?? "",
+          termsPageIntro: homePageData.termsPageIntro ?? "",
+          termsSectionTitle: homePageData.termsSectionTitle ?? "",
+          termsSectionContent: homePageData.termsSectionContent ?? "",
+          servicesSectionTitle: homePageData.servicesSectionTitle ?? "",
+          servicesSectionContent: homePageData.servicesSectionContent ?? "",
+          termsPageNote: homePageData.termsPageNote ?? "",
         });
       }
       setMessage("Tải dữ liệu admin thành công");
@@ -371,9 +519,9 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveFooter = async () => {
+  const saveHomePageContent = async (successMessage: string, failureMessage: string) => {
     if (!homePageConfig) {
-      setMessage("Không có dữ liệu trang chủ để cập nhật footer");
+      setMessage("Không có dữ liệu trang chủ để cập nhật");
       return;
     }
     try {
@@ -381,6 +529,16 @@ export default function AdminPage() {
         ...homePageConfig,
         hotline: footerForm.hotline,
         footerDescription: footerForm.footerDescription,
+        discountCode: promotionForm.discountCode.trim().toUpperCase(),
+        discountPercent: Number.isFinite(promotionForm.discountPercent) ? promotionForm.discountPercent : 0,
+        termsPageTitle: legalForm.termsPageTitle,
+        termsPageSubtitle: legalForm.termsPageSubtitle,
+        termsPageIntro: legalForm.termsPageIntro,
+        termsSectionTitle: legalForm.termsSectionTitle,
+        termsSectionContent: legalForm.termsSectionContent,
+        servicesSectionTitle: legalForm.servicesSectionTitle,
+        servicesSectionContent: legalForm.servicesSectionContent,
+        termsPageNote: legalForm.termsPageNote,
         footerTags: splitTextToList(footerForm.footerTagsText),
         footerLinks: footerForm.footerLinks.map((row) => row.label.trim()),
         footerLinkUrls: footerForm.footerLinks.map((row) => row.url.trim()),
@@ -411,10 +569,36 @@ export default function AdminPage() {
         footerTagsText: (updated.footerTags ?? []).join(" | "),
         footerLinks: buildFooterLinkRows(updated.footerLinks ?? [], updated.footerLinkUrls ?? []),
       });
-      setMessage("Đã cập nhật footer thành công");
+      setPromotionForm({
+        discountCode: updated.discountCode ?? "",
+        discountPercent: updated.discountPercent ?? 10,
+      });
+      setLegalForm({
+        termsPageTitle: updated.termsPageTitle ?? "",
+        termsPageSubtitle: updated.termsPageSubtitle ?? "",
+        termsPageIntro: updated.termsPageIntro ?? "",
+        termsSectionTitle: updated.termsSectionTitle ?? "",
+        termsSectionContent: updated.termsSectionContent ?? "",
+        servicesSectionTitle: updated.servicesSectionTitle ?? "",
+        servicesSectionContent: updated.servicesSectionContent ?? "",
+        termsPageNote: updated.termsPageNote ?? "",
+      });
+      setMessage(successMessage);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Lưu footer thất bại");
+      setMessage(error instanceof Error ? error.message : failureMessage);
     }
+  };
+
+  const handleSaveFooter = async () => {
+    await saveHomePageContent("Đã cập nhật footer thành công", "Lưu footer thất bại");
+  };
+
+  const handleSavePromotion = async () => {
+    await saveHomePageContent("Đã cập nhật mã giảm giá", "Lưu mã giảm giá thất bại");
+  };
+
+  const handleSaveLegalContent = async () => {
+    await saveHomePageContent("Đã cập nhật điều khoản và dịch vụ", "Lưu điều khoản và dịch vụ thất bại");
   };
 
   const handleSubmitRoom = async (event: FormEvent) => {
@@ -549,6 +733,9 @@ export default function AdminPage() {
           selectedSlotTime: editingBooking.selectedSlotTime,
           note: editingBooking.note,
           transportType: editingBooking.transportType,
+          idCardFrontImage: editingBooking.idCardFrontImage,
+          idCardBackImage: editingBooking.idCardBackImage,
+          bookingStatus: normalizeBookingStatus(editingBooking.bookingStatus),
         }),
       });
       if (response.status === 401) {
@@ -669,6 +856,24 @@ export default function AdminPage() {
     try {
       const dataUrl = await fileToDataUrl(file);
       setRoomForm((prev) => ({ ...prev, imageUrl: dataUrl }));
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
+
+  const handleBookingImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    field: "idCardFrontImage" | "idCardBackImage"
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !editingBooking) return;
+    setIsUploadingMedia(true);
+    try {
+      const compressed = await compressImageFileToDataUrl(file);
+      setEditingBooking((prev) => (prev ? { ...prev, [field]: compressed } : prev));
+      setMessage("Đã nén và cập nhật ảnh CCCD trong form sửa booking");
+    } catch {
+      setMessage("Không thể tải ảnh CCCD lên");
     } finally {
       setIsUploadingMedia(false);
     }
@@ -1325,63 +1530,124 @@ export default function AdminPage() {
 
         {activeTab === "bookings" && (
           <div className="space-y-6">
-            <section className="rounded-2xl bg-white p-6 shadow-lg">
-              <h2 className="text-xl font-bold">Danh sách đặt phòng</h2>
-              <p className="text-sm text-slate-500">Tổng {totalBookings} booking</p>
-              
-              <div className="mt-4 space-y-3">
-                {bookings.map((booking) => (
-                  <div
-                    key={booking.bookingId}
-                    className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-bold text-slate-900">{booking.guestName}</p>
-                          <p className="text-sm text-slate-600">{booking.guestEmail}</p>
-                          <p className="text-sm text-slate-600">{booking.guestPhone}</p>
-                        </div>
-                        <span className="rounded-full bg-[#f0dfc9] px-3 py-1 text-xs font-semibold text-[#8b5e3c]">
-                          {booking.bookingConfirmationCode}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span className="rounded-lg bg-white px-2 py-1 font-semibold text-slate-700">
-                          {booking.selectedRoomName}
-                        </span>
-                        <span className="rounded-lg bg-white px-2 py-1 text-slate-600">
-                          {booking.branchName}
-                        </span>
-                        <span className="rounded-lg bg-white px-2 py-1 text-slate-600">
-                          {booking.selectedDayLabel} • {booking.selectedSlotTime}
-                        </span>
-                        <span className="rounded-lg bg-green-100 px-2 py-1 font-semibold text-green-700">
-                          {booking.selectedSlotPrice}
-                        </span>
-                      </div>
+            <section className="overflow-hidden rounded-[28px] border border-[#e2c9ab] bg-[#fffaf2] shadow-[0_18px_48px_rgba(122,84,47,0.10)]">
+              <div className="border-b border-[#eadcc9] bg-[linear-gradient(135deg,#fffaf2_0%,#f5e7d1_100%)] px-6 py-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#8b5e3c] ring-1 ring-[#e2c9ab]">
+                      <ReceiptText className="h-3.5 w-3.5" />
+                      Booking management
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSelectedBooking(booking)}
-                        className="rounded-lg bg-[#f0dfc9] px-4 py-2 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#e5c5a5]"
-                      >
-                        Chi tiết
-                      </button>
-                      <button
-                        onClick={() => setEditingBooking(booking)}
-                        className="rounded-lg bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-200"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDeleteBooking(booking.bookingId)}
-                        className="rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
-                      >
-                        Xóa
-                      </button>
+                    <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[#6b4a2d]">Danh sách đặt phòng</h2>
+                    <p className="mt-1 text-sm text-[#9c7450]">Tổng {totalBookings} booking đang được quản lý</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs sm:min-w-[280px]">
+                    <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-[#eadcc9]">
+                      <div className="font-semibold text-[#8b5e3c]">Tổng</div>
+                      <div className="mt-1 text-lg font-black text-[#6b4a2d]">{totalBookings}</div>
+                    </div>
+                    <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-[#eadcc9]">
+                      <div className="font-semibold text-[#8b5e3c]">Phòng</div>
+                      <div className="mt-1 text-lg font-black text-[#6b4a2d]">{bookedRooms}</div>
+                    </div>
+                    <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-[#eadcc9]">
+                      <div className="font-semibold text-[#8b5e3c]">Đang mở</div>
+                      <div className="mt-1 text-lg font-black text-[#6b4a2d]">{settings.acceptingBookings ? "Yes" : "No"}</div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4 sm:p-6">
+                {bookings.map((booking) => (
+                  <article
+                    key={booking.bookingId}
+                    className={`rounded-[24px] border border-[#eadcc9] bg-white p-4 shadow-[0_10px_30px_rgba(122,84,47,0.06)] ring-1 ${getBookingStatusRingClass(booking.bookingStatus)}`}
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-black text-[#6b4a2d]">{booking.guestName}</h3>
+                              <span className="rounded-full bg-[#f0dfc9] px-3 py-1 text-[11px] font-bold tracking-[0.08em] text-[#7e5331]">
+                                {booking.bookingConfirmationCode}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-[#9c7450]">{booking.selectedRoomName} · {booking.branchName}</p>
+                          </div>
+
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getBookingStatusBadgeClass(booking.bookingStatus)}`}>
+                            {normalizeBookingStatus(booking.bookingStatus)}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-2xl bg-[#fffaf2] p-3 ring-1 ring-[#eadcc9]">
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#8b5e3c]">
+                              <Users className="h-3.5 w-3.5" />
+                              Khách hàng
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#6b4a2d]">
+                              <p className="font-semibold">{booking.guestEmail}</p>
+                              <p>{booking.guestPhone}</p>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-[#fffaf2] p-3 ring-1 ring-[#eadcc9]">
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#8b5e3c]">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Lịch đặt
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#6b4a2d]">
+                              <p>{booking.selectedDayLabel}</p>
+                              <p>{booking.selectedSlotTime}</p>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-[#fffaf2] p-3 ring-1 ring-[#eadcc9]">
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#8b5e3c]">
+                              <MapPin className="h-3.5 w-3.5" />
+                              Vị trí
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#6b4a2d]">
+                              <p>{booking.branchName}</p>
+                              <p>{booking.selectedRoomName}</p>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-[#fffaf2] p-3 ring-1 ring-[#eadcc9]">
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#8b5e3c]">
+                              <Ticket className="h-3.5 w-3.5" />
+                              Giá
+                            </div>
+                            <div className="mt-2 text-xl font-black text-[#6b4a2d]">{booking.selectedSlotPrice}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-row gap-2 lg:flex-col lg:min-w-[136px] lg:items-stretch">
+                        <button
+                          onClick={() => setSelectedBooking(booking)}
+                          className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[#e2c9ab] bg-white px-4 py-2.5 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#f0dfc9]"
+                        >
+                          Chi tiết
+                        </button>
+                        <button
+                          onClick={() => setEditingBooking(booking)}
+                          className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[#8b5e3c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#734a2d]"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBooking(booking.bookingId)}
+                          className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[#fff1ef] px-4 py-2.5 text-sm font-semibold text-[#b94e3a] transition hover:bg-[#ffe1db]"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  </article>
                 ))}
               </div>
             </section>
@@ -1442,58 +1708,72 @@ export default function AdminPage() {
                         </select>
                       </div>
                       <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Trạng thái booking</label>
+                        <select
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={normalizeBookingStatus(editingBooking.bookingStatus)}
+                          onChange={(e) => setEditingBooking({...editingBooking, bookingStatus: e.target.value})}
+                        >
+                          {BOOKING_STATUS_OPTIONS.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
                         <label className="block text-sm font-semibold text-slate-700 mb-1">Số người lớn</label>
                         <input
                           type="number"
                           className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                          value={editingBooking.numOfAdults}
-                          onChange={(e) => setEditingBooking({...editingBooking, numOfAdults: Number(e.target.value)})}
-                        />
+                      <div className="sm:col-span-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="block text-sm font-semibold text-slate-700">Ảnh CCCD/CMND</label>
+                          <span className="text-xs text-slate-500">Tải ảnh mới để thay thế dữ liệu hiện tại</span>
+                        </div>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600">Mặt trước</label>
+                            {editingBooking.idCardFrontImage ? (
+                              <img
+                                src={editingBooking.idCardFrontImage}
+                                alt="CCCD mặt trước"
+                                className="h-40 w-full rounded-xl border border-slate-200 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-40 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs text-slate-400">
+                                Chưa có ảnh
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => void handleBookingImageUpload(e, "idCardFrontImage")}
+                              className="block w-full text-xs"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600">Mặt sau</label>
+                            {editingBooking.idCardBackImage ? (
+                              <img
+                                src={editingBooking.idCardBackImage}
+                                alt="CCCD mặt sau"
+                                className="h-40 w-full rounded-xl border border-slate-200 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-40 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs text-slate-400">
+                                Chưa có ảnh
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => void handleBookingImageUpload(e, "idCardBackImage")}
+                              className="block w-full text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">Số trẻ em</label>
-                        <input
-                          type="number"
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                          value={editingBooking.numOfChildren}
-                          onChange={(e) => setEditingBooking({...editingBooking, numOfChildren: Number(e.target.value)})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày</label>
-                        <input
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                          value={editingBooking.selectedDayLabel}
-                          onChange={(e) => setEditingBooking({...editingBooking, selectedDayLabel: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">Khung giờ</label>
-                        <input
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                          value={editingBooking.selectedSlotTime}
-                          onChange={(e) => setEditingBooking({...editingBooking, selectedSlotTime: e.target.value})}
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ghi chú</label>
-                        <textarea
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                          rows={3}
-                          value={editingBooking.note || ""}
-                          onChange={(e) => setEditingBooking({...editingBooking, note: e.target.value})}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleUpdateBooking}
-                        className="flex-1 rounded-lg bg-green-500 px-4 py-3 font-semibold text-white transition hover:bg-green-600"
-                      >
-                        Lưu thay đổi
-                      </button>
-                      <button
                         onClick={() => setEditingBooking(null)}
                         className="rounded-lg border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
                       >
@@ -1561,6 +1841,40 @@ export default function AdminPage() {
                       </div>
                     )}
 
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <h4 className="font-bold text-slate-900">Ảnh CCCD/CMND</h4>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Mặt trước</p>
+                          {selectedBooking.idCardFrontImage ? (
+                            <img
+                              src={selectedBooking.idCardFrontImage}
+                              alt="CCCD mặt trước"
+                              className="h-44 w-full rounded-xl border border-slate-200 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-400">
+                              Chưa có ảnh
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Mặt sau</p>
+                          {selectedBooking.idCardBackImage ? (
+                            <img
+                              src={selectedBooking.idCardBackImage}
+                              alt="CCCD mặt sau"
+                              className="h-44 w-full rounded-xl border border-slate-200 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-44 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-400">
+                              Chưa có ảnh
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex gap-3">
                       <button
                         onClick={() => handleDeleteBooking(selectedBooking.bookingId)}
@@ -1578,7 +1892,136 @@ export default function AdminPage() {
 
         {activeTab === "settings" && (
           <div className="space-y-6">
+            {/* Terms & Services Settings */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Điều khoản và dịch vụ</h2>
+              <p className="text-sm text-slate-500">Nội dung hiển thị ở trang công khai /dieu-khoan-dich-vu</p>
+
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Tiêu đề trang</label>
+                    <input
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                      value={legalForm.termsPageTitle}
+                      onChange={(e) => setLegalForm((prev) => ({ ...prev, termsPageTitle: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Dòng mô tả ngắn</label>
+                    <input
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                      value={legalForm.termsPageSubtitle}
+                      onChange={(e) => setLegalForm((prev) => ({ ...prev, termsPageSubtitle: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Mở đầu trang</label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    rows={3}
+                    value={legalForm.termsPageIntro}
+                    onChange={(e) => setLegalForm((prev) => ({ ...prev, termsPageIntro: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Tiêu đề điều khoản</label>
+                    <input
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                      value={legalForm.termsSectionTitle}
+                      onChange={(e) => setLegalForm((prev) => ({ ...prev, termsSectionTitle: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Tiêu đề dịch vụ</label>
+                    <input
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                      value={legalForm.servicesSectionTitle}
+                      onChange={(e) => setLegalForm((prev) => ({ ...prev, servicesSectionTitle: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Nội dung điều khoản</label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    rows={5}
+                    value={legalForm.termsSectionContent}
+                    onChange={(e) => setLegalForm((prev) => ({ ...prev, termsSectionContent: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Nội dung dịch vụ</label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    rows={5}
+                    value={legalForm.servicesSectionContent}
+                    onChange={(e) => setLegalForm((prev) => ({ ...prev, servicesSectionContent: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Ghi chú cuối trang</label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    rows={3}
+                    value={legalForm.termsPageNote}
+                    onChange={(e) => setLegalForm((prev) => ({ ...prev, termsPageNote: e.target.value }))}
+                  />
+                </div>
+
+                <button
+                  onClick={handleSaveLegalContent}
+                  className="rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d]"
+                >
+                  Lưu điều khoản và dịch vụ
+                </button>
+              </div>
+            </section>
+
             {/* Booking Settings */}
+            <section className="rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-bold">Mã giảm giá</h2>
+              <p className="text-sm text-slate-500">Áp dụng mã do admin quy định khi khách nhập đúng trên form đặt phòng</p>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Mã giảm giá</label>
+                  <input
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    value={promotionForm.discountCode}
+                    onChange={(e) => setPromotionForm((prev) => ({ ...prev, discountCode: e.target.value.toUpperCase() }))}
+                    placeholder="FIIN10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Phần trăm giảm</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2"
+                    value={promotionForm.discountPercent}
+                    onChange={(e) => setPromotionForm((prev) => ({ ...prev, discountPercent: Number(e.target.value) }))}
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleSavePromotion}
+                className="mt-4 rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d]"
+              >
+                Lưu mã giảm giá
+              </button>
+            </section>
+
             <section className="rounded-2xl bg-white p-6 shadow-lg">
               <h2 className="text-xl font-bold">Cài đặt nhận booking</h2>
               <p className="text-sm text-slate-500">Bật/tắt chức năng đặt phòng trên website</p>

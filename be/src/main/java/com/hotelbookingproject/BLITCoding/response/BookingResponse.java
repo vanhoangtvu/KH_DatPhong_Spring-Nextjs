@@ -64,6 +64,8 @@ public class BookingResponse {
 
     private String selectedSlotPrice;
 
+    private String bookingStatus;
+
 
 
     private RoomResponse room;
