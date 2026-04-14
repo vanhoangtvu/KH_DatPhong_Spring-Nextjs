@@ -102,7 +102,7 @@ type FooterForm = {
   footerLinks: FooterLinkRow[];
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -728,18 +728,18 @@ export default function AdminPage() {
 
   if (!token) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f4f5f7] to-[#e8eaf0] p-4">
-        <section className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7f0e2] via-[#f1e2c8] to-[#ead5b5] p-4 text-[#6b4a2d]">
+          <section className="w-full max-w-md rounded-3xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-8 shadow-[0_18px_60px_rgba(122,84,47,0.12)]">
           <div className="mb-6 text-center">
-            <h1 className="text-3xl font-black text-[#25335a]">Fiin Home Admin</h1>
-            <p className="mt-2 text-sm text-slate-500">Đăng nhập để quản lý hệ thống</p>
+              <h1 className="text-3xl font-black text-[#7e5331]">Fiin Home Admin</h1>
+              <p className="mt-2 text-sm text-[#9c7450]">Đăng nhập để quản lý hệ thống</p>
           </div>
           <form className="space-y-4" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+              <label className="mb-1 block text-sm font-semibold text-[#7e5331]">Email</label>
               <input
                 type="email"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-[#355eb7] focus:outline-none focus:ring-2 focus:ring-[#355eb7]/20"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-4 py-3 focus:border-[#8b5e3c] focus:outline-none focus:ring-2 focus:ring-[#8b5e3c]/20"
                 placeholder="admin@hotel.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -747,10 +747,10 @@ export default function AdminPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+              <label className="mb-1 block text-sm font-semibold text-[#7e5331]">Mật khẩu</label>
               <input
                 type="password"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-[#355eb7] focus:outline-none focus:ring-2 focus:ring-[#355eb7]/20"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-4 py-3 focus:border-[#8b5e3c] focus:outline-none focus:ring-2 focus:ring-[#8b5e3c]/20"
                 placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -758,14 +758,14 @@ export default function AdminPage() {
               />
             </div>
             <button 
-              className="w-full rounded-xl bg-[#355eb7] px-4 py-3 font-semibold text-white transition hover:bg-[#2d4d99] active:scale-[0.98]" 
+              className="w-full rounded-xl bg-[#8b5e3c] px-4 py-3 font-semibold text-white transition hover:bg-[#734a2d] active:scale-[0.98]" 
               type="submit"
             >
               Đăng nhập
             </button>
           </form>
           {message && (
-            <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-center text-sm text-[#1f4ca2]">{message}</p>
+            <p className="mt-4 rounded-xl bg-[#f0dfc9] px-3 py-2 text-center text-sm text-[#7e5331]">{message}</p>
           )}
         </section>
       </main>
@@ -781,50 +781,50 @@ export default function AdminPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#f4f5f7] to-[#e8eaf0] p-4 text-[#25335a] sm:p-6 lg:p-8">
+    <main className="min-h-screen bg-gradient-to-br from-[#f7f0e2] via-[#f1e2c8] to-[#ead5b5] p-4 text-[#6b4a2d] sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
-        <header className="rounded-3xl bg-white p-6 shadow-lg">
+        <header className="rounded-3xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-6 shadow-[0_18px_60px_rgba(122,84,47,0.10)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-black">Fiin Home Admin</h1>
-              <p className="mt-1 text-sm text-slate-500">Quản lý hệ thống đặt phòng khách sạn</p>
+              <h1 className="text-3xl font-black text-[#7e5331]">Fiin Home Admin</h1>
+              <p className="mt-1 text-sm text-[#9c7450]">Quản lý hệ thống đặt phòng khách sạn</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700">
+              <span className="rounded-full bg-[#f0dfc9] px-3 py-1.5 text-xs font-semibold text-[#7e5331]">
                 {totalRooms} phòng
               </span>
-              <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700">
+              <span className="rounded-full bg-[#f0dfc9] px-3 py-1.5 text-xs font-semibold text-[#7e5331]">
                 {totalBookings} booking
               </span>
-              <span className="rounded-full bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-700">
+              <span className="rounded-full bg-[#f0dfc9] px-3 py-1.5 text-xs font-semibold text-[#7e5331]">
                 {branchOptions.length} chi nhánh
               </span>
               <button
                 onClick={handleLogout}
-                className="rounded-full bg-red-100 px-4 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-200 active:scale-95"
+                className="rounded-full bg-[#ecd3be] px-4 py-1.5 text-xs font-semibold text-[#7e5331] transition hover:bg-[#e5c5a5] active:scale-95"
               >
                 Đăng xuất
               </button>
             </div>
           </div>
           {message && (
-            <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-[#1f4ca2]">
+            <div className="mt-4 rounded-xl bg-[#f0dfc9] px-4 py-3 text-sm text-[#7e5331]">
               {message}
             </div>
           )}
         </header>
 
         {/* Tabs Navigation */}
-        <nav className="flex gap-2 overflow-x-auto rounded-2xl bg-white p-2 shadow-lg">
+        <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-2 shadow-[0_12px_40px_rgba(122,84,47,0.08)]">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold transition ${
                 activeTab === tab.id
-                  ? "bg-[#355eb7] text-white shadow-md"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-[#8b5e3c] text-white shadow-md"
+                  : "text-[#7e5331] hover:bg-[#f0dfc9]"
               }`}
             >
               <span>{tab.icon}</span>
@@ -838,43 +838,43 @@ export default function AdminPage() {
           <div className="space-y-6">
             {/* Stats Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white shadow-lg">
+              <div className="rounded-2xl bg-gradient-to-br from-[#8b5e3c] to-[#a57146] p-6 text-white shadow-lg">
                 <p className="text-sm font-medium opacity-90">Tổng phòng</p>
                 <p className="mt-2 text-4xl font-black">{totalRooms}</p>
               </div>
-              <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 p-6 text-white shadow-lg">
+              <div className="rounded-2xl bg-gradient-to-br from-[#9c7450] to-[#b08964] p-6 text-white shadow-lg">
                 <p className="text-sm font-medium opacity-90">Phòng nổi bật</p>
                 <p className="mt-2 text-4xl font-black">{featuredRooms}</p>
               </div>
-              <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-white shadow-lg">
+              <div className="rounded-2xl bg-gradient-to-br from-[#c08457] to-[#d39a66] p-6 text-white shadow-lg">
                 <p className="text-sm font-medium opacity-90">Phòng đã đặt</p>
                 <p className="mt-2 text-4xl font-black">{bookedRooms}</p>
               </div>
-              <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 p-6 text-white shadow-lg">
+              <div className="rounded-2xl bg-gradient-to-br from-[#7e5331] to-[#8b5e3c] p-6 text-white shadow-lg">
                 <p className="text-sm font-medium opacity-90">Tổng booking</p>
                 <p className="mt-2 text-4xl font-black">{totalBookings}</p>
               </div>
             </div>
 
             {/* Branch Overview */}
-            <section className="rounded-2xl bg-white p-6 shadow-lg">
+            <section className="rounded-2xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-6 shadow-[0_12px_40px_rgba(122,84,47,0.08)]">
               <h2 className="text-xl font-bold">Chi nhánh</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {branchGroups.map((group) => (
                   <div
                     key={group.branch}
-                    className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 transition hover:border-[#355eb7] hover:shadow-md"
+                    className="rounded-xl border-2 border-[#e2c9ab] bg-[#fff8ef] p-4 transition hover:border-[#8b5e3c] hover:shadow-md"
                   >
-                    <h3 className="font-bold text-slate-900">{group.branch}</h3>
-                    <p className="mt-1 text-sm text-slate-600">{group.count} phòng</p>
+                    <h3 className="font-bold text-[#7e5331]">{group.branch}</h3>
+                    <p className="mt-1 text-sm text-[#9c7450]">{group.count} phòng</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {group.roomNames.slice(0, 3).map((name) => (
-                        <span key={name} className="rounded-lg bg-white px-2 py-1 text-xs text-slate-700 shadow-sm">
+                        <span key={name} className="rounded-lg bg-white px-2 py-1 text-xs text-[#7e5331] shadow-sm">
                           {name}
                         </span>
                       ))}
                       {group.roomNames.length > 3 && (
-                        <span className="rounded-lg bg-slate-200 px-2 py-1 text-xs text-slate-600">
+                        <span className="rounded-lg bg-[#f0dfc9] px-2 py-1 text-xs text-[#7e5331]">
                           +{group.roomNames.length - 3}
                         </span>
                       )}
@@ -885,17 +885,17 @@ export default function AdminPage() {
             </section>
 
             {/* Recent Bookings */}
-            <section className="rounded-2xl bg-white p-6 shadow-lg">
+            <section className="rounded-2xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-6 shadow-[0_12px_40px_rgba(122,84,47,0.08)]">
               <h2 className="text-xl font-bold">Booking gần đây</h2>
               <div className="mt-4 space-y-3">
                 {bookings.slice(0, 5).map((booking) => (
                   <div
                     key={booking.bookingId}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    className="flex items-center justify-between rounded-xl border border-[#e2c9ab] bg-[#fff8ef] p-4"
                   >
                     <div>
                       <p className="font-semibold">{booking.guestName}</p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-[#9c7450]">
                         {booking.selectedRoomName} • {booking.selectedDayLabel}
                       </p>
                     </div>
@@ -904,7 +904,7 @@ export default function AdminPage() {
                         setSelectedBooking(booking);
                         setActiveTab("bookings");
                       }}
-                      className="rounded-lg bg-[#355eb7] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99]"
+                      className="rounded-lg bg-[#8b5e3c] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#734a2d]"
                     >
                       Xem
                     </button>
@@ -917,7 +917,7 @@ export default function AdminPage() {
 
         {activeTab === "branches" && (
           <div className="space-y-6">
-            <section className="rounded-2xl bg-white p-6 shadow-lg">
+            <section className="rounded-2xl border border-[#e2c9ab] bg-[#fffaf2]/90 p-6 shadow-[0_12px_40px_rgba(122,84,47,0.08)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold">Quản lý chi nhánh</h2>
@@ -929,7 +929,7 @@ export default function AdminPage() {
                     setBranchForm({ name: "", description: "", address: "", phone: "", active: true });
                     setShowBranchForm(!showBranchForm);
                   }}
-                  className="rounded-xl bg-[#355eb7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99] active:scale-95"
+                  className="rounded-xl bg-[#8b5e3c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#734a2d] active:scale-95"
                 >
                   {showBranchForm ? "Đóng form" : "+ Thêm chi nhánh"}
                 </button>
@@ -937,7 +937,7 @@ export default function AdminPage() {
 
               {/* Branch Form */}
               {showBranchForm && (
-                <form onSubmit={handleSubmitBranch} className="mt-6 rounded-xl border-2 border-[#355eb7] bg-blue-50 p-6">
+                <form onSubmit={handleSubmitBranch} className="mt-6 rounded-xl border-2 border-[#e2c9ab] bg-[#fffaf2] p-6">
                   <h3 className="mb-4 text-lg font-bold">{editingBranchId ? "Sửa chi nhánh" : "Thêm chi nhánh mới"}</h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
@@ -992,7 +992,7 @@ export default function AdminPage() {
                   <div className="mt-4 flex gap-3">
                     <button
                       type="submit"
-                      className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                      className="rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d]"
                     >
                       Lưu chi nhánh
                     </button>
@@ -1012,7 +1012,7 @@ export default function AdminPage() {
                 {branches.map((branch) => {
                   const branchRoomCount = rooms.filter((room) => room.areaName === branch.name).length;
                   return (
-                    <div key={branch.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div key={branch.id} className="rounded-xl border border-[#eadcc9] bg-[#fffaf2] p-4 shadow-sm">
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <h3 className="font-bold">{branch.name}</h3>
@@ -1034,7 +1034,7 @@ export default function AdminPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           onClick={() => handleEditBranch(branch)}
-                          className="flex-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                          className="flex-1 rounded-lg bg-[#f0dfc9] px-3 py-2 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#e5c5a5]"
                         >
                           Sửa
                         </button>
@@ -1042,15 +1042,15 @@ export default function AdminPage() {
                           onClick={() => handleToggleBranch(branch.id, !branch.active)}
                           className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                             branch.active
-                              ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                           }`}
                         >
                           {branch.active ? "Tạm dừng" : "Kích hoạt"}
                         </button>
                         <button
                           onClick={() => handleDeleteBranch(branch.id)}
-                          className="rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
+                          className="rounded-lg bg-[#f7e1dd] px-3 py-2 text-sm font-semibold text-[#a24d3c] transition hover:bg-[#efc7be]"
                         >
                           Xóa
                         </button>
@@ -1080,7 +1080,7 @@ export default function AdminPage() {
                     setGalleryItems([""]);
                     setShowRoomForm(!showRoomForm);
                   }}
-                  className="rounded-xl bg-[#355eb7] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2d4d99] active:scale-95"
+                  className="rounded-xl bg-[#8b5e3c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#734a2d] active:scale-95"
                 >
                   {showRoomForm ? "Đóng form" : "+ Thêm phòng"}
                 </button>
@@ -1092,8 +1092,8 @@ export default function AdminPage() {
                   onClick={() => setSelectedBranch(null)}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                     selectedBranch === null
-                      ? "bg-[#355eb7] text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      ? "bg-[#8b5e3c] text-white"
+                      : "bg-[#f0dfc9] text-[#7e5331] hover:bg-[#e5c5a5]"
                   }`}
                 >
                   Tất cả
@@ -1104,8 +1104,8 @@ export default function AdminPage() {
                     onClick={() => setSelectedBranch(branch)}
                     className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                       selectedBranch === branch
-                        ? "bg-[#355eb7] text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        ? "bg-[#8b5e3c] text-white"
+                        : "bg-[#f0dfc9] text-[#7e5331] hover:bg-[#e5c5a5]"
                     }`}
                   >
                     {branch}
@@ -1115,7 +1115,7 @@ export default function AdminPage() {
 
               {/* Room Form */}
               {showRoomForm && (
-                <form onSubmit={handleSubmitRoom} className="mt-6 rounded-xl border-2 border-[#355eb7] bg-blue-50 p-6">
+                <form onSubmit={handleSubmitRoom} className="mt-6 rounded-xl border-2 border-[#e2c9ab] bg-[#fffaf2] p-6">
                   <h3 className="mb-4 text-lg font-bold">{editingRoomId ? "Sửa phòng" : "Thêm phòng mới"}</h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
@@ -1230,7 +1230,7 @@ export default function AdminPage() {
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4">
+                      <div className="rounded-xl border-2 border-dashed border-[#eadcc9] bg-[#fffaf2] p-4">
                         <label className="flex items-start gap-3">
                           <input
                             type="checkbox"
@@ -1239,7 +1239,7 @@ export default function AdminPage() {
                             className="mt-1 h-5 w-5 rounded"
                           />
                           <div className="flex-1">
-                            <span className="font-bold text-slate-900">Hiển thị ở Trang giới thiệu</span>
+                            <span className="font-bold text-[#6a4a2d]">Hiển thị ở Trang giới thiệu</span>
                             <p className="mt-1 text-xs text-slate-600">
                               Phòng này sẽ xuất hiện trong phần "Trang giới thiệu" ở trang chủ. Tất cả phòng được tick sẽ hiển thị theo thứ tự ưu tiên.
                             </p>
@@ -1253,7 +1253,7 @@ export default function AdminPage() {
                             <input
                               type="number"
                               placeholder="Ví dụ: 1, 2, 3..."
-                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              className="w-full rounded-lg border border-[#eadcc9] px-3 py-2"
                               value={roomForm.homeOrder}
                               onChange={(e) => setRoomForm((p) => ({ ...p, homeOrder: Number(e.target.value) }))}
                             />
@@ -1266,7 +1266,7 @@ export default function AdminPage() {
                     <button
                       type="submit"
                       disabled={isUploadingMedia}
-                      className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99] disabled:opacity-50"
+                      className="rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d] disabled:opacity-50"
                     >
                       {isUploadingMedia ? "Đang tải..." : "Lưu phòng"}
                     </button>
@@ -1284,7 +1284,7 @@ export default function AdminPage() {
               {/* Room List */}
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleRooms.map((room) => (
-                  <div key={room.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div key={room.id} className="rounded-xl border border-[#eadcc9] bg-[#fffaf2] p-4 shadow-sm">
                     {room.imageUrl && (
                       <div className="mb-3 h-32 overflow-hidden rounded-lg bg-slate-200">
                         <img src={room.imageUrl} alt={room.displayName} className="h-full w-full object-cover" />
@@ -1301,17 +1301,17 @@ export default function AdminPage() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-lg font-bold text-[#355eb7]">{room.roomPrice.toLocaleString()}đ</p>
+                    <p className="mt-1 text-lg font-bold text-[#8b5e3c]">{room.roomPrice.toLocaleString()}đ</p>
                     <div className="mt-3 flex gap-2">
                       <button
                         onClick={() => handleEditRoom(room)}
-                        className="flex-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        className="flex-1 rounded-lg bg-[#f0dfc9] px-3 py-2 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#e5c5a5]"
                       >
                         Sửa
                       </button>
                       <button
                         onClick={() => handleDeleteRoom(room.id)}
-                        className="flex-1 rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200"
+                        className="flex-1 rounded-lg bg-[#f7e1dd] px-3 py-2 text-sm font-semibold text-[#a24d3c] transition hover:bg-[#efc7be]"
                       >
                         Xóa
                       </button>
@@ -1342,7 +1342,7 @@ export default function AdminPage() {
                           <p className="text-sm text-slate-600">{booking.guestEmail}</p>
                           <p className="text-sm text-slate-600">{booking.guestPhone}</p>
                         </div>
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                        <span className="rounded-full bg-[#f0dfc9] px-3 py-1 text-xs font-semibold text-[#8b5e3c]">
                           {booking.bookingConfirmationCode}
                         </span>
                       </div>
@@ -1364,7 +1364,7 @@ export default function AdminPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedBooking(booking)}
-                        className="rounded-lg bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        className="rounded-lg bg-[#f0dfc9] px-4 py-2 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#e5c5a5]"
                       >
                         Chi tiết
                       </button>
@@ -1608,7 +1608,7 @@ export default function AdminPage() {
 
                 <button
                   onClick={handleSaveSettings}
-                  className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                  className="rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d]"
                 >
                   Lưu cài đặt
                 </button>
@@ -1657,7 +1657,7 @@ export default function AdminPage() {
                     <label className="block text-sm font-semibold text-slate-700">Footer Links</label>
                     <button
                       onClick={addFooterLinkRow}
-                      className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                      className="rounded-lg bg-[#f0dfc9] px-3 py-1.5 text-sm font-semibold text-[#8b5e3c] transition hover:bg-[#e5c5a5]"
                     >
                       + Thêm link
                     </button>
@@ -1690,7 +1690,7 @@ export default function AdminPage() {
 
                 <button
                   onClick={handleSaveFooter}
-                  className="rounded-lg bg-[#355eb7] px-6 py-2.5 font-semibold text-white transition hover:bg-[#2d4d99]"
+                  className="rounded-lg bg-[#8b5e3c] px-6 py-2.5 font-semibold text-white transition hover:bg-[#734a2d]"
                 >
                   Lưu footer
                 </button>

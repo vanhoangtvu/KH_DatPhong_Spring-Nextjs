@@ -1,3 +1,11 @@
+server:
+  port: 8082
+  address: 0.0.0.0
+  public-ip: ${SERVER_PUBLIC_IP:}
+
+frontend:
+  port: ${FRONTEND_PORT:3002}
+
 spring:
   application:
     name: BLITCoding

@@ -44,7 +44,7 @@ const EMPTY_BOOKING_FORM: BookingFormState = {
   acceptedTerms: false,
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 

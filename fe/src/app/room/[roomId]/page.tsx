@@ -24,7 +24,7 @@ type HomePageResponse = {
   roomLists: Record<string, { roomId: number; name: string }[]>;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function RoomDetailPage() {
   const params = useParams();
@@ -94,7 +94,7 @@ export default function RoomDetailPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f4f5f7] px-4">
         <div className="text-center">
-          <div className="text-2xl font-black text-[#4f67b0]">Đang tải...</div>
+          <div className="text-2xl font-black text-[#8b5e3c]">Đang tải...</div>
           <p className="mt-2 text-sm text-slate-500">Vui lòng đợi</p>
         </div>
       </main>
@@ -105,9 +105,9 @@ export default function RoomDetailPage() {
     return (
       <main className="min-h-screen bg-[#f4f5f7] px-4 py-8">
         <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-black text-[#4f67b0]">Không tìm thấy phòng</h1>
+          <h1 className="text-2xl font-black text-[#8b5e3c]">Không tìm thấy phòng</h1>
           <p className="mt-2 text-sm text-slate-500">{error || "Phòng này không tồn tại"}</p>
-          <Link href="/" className="mt-4 inline-flex rounded-full border border-[#cfe0ff] bg-white px-4 py-2 text-sm font-semibold text-[#4361af]">
+          <Link href="/" className="mt-4 inline-flex rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-4 py-2 text-sm font-semibold text-[#8b5e3c]">
             ← Quay lại trang chủ
           </Link>
         </div>

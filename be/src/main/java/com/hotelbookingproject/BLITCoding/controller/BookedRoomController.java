@@ -67,6 +67,23 @@ public class BookedRoomController {
         return ResponseEntity.ok(bookingResponses);
     }
 
+    @GetMapping("/lookup")
+    public ResponseEntity<?> lookupBookingsByGuest(
+            @RequestParam String guestName,
+            @RequestParam String guestPhone
+    ) {
+        if (guestName == null || guestName.trim().isEmpty() || guestPhone == null || guestPhone.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Vui lòng nhập đầy đủ họ tên và số điện thoại.");
+        }
+
+        List<BookedRoom> bookings = bookedRoomService.findBookingsByGuestNameAndPhone(guestName, guestPhone);
+        List<BookingResponse> bookingResponses = new ArrayList<>();
+        for (BookedRoom booking : bookings) {
+            bookingResponses.add(getBookingResponse(booking));
+        }
+        return ResponseEntity.ok(bookingResponses);
+    }
+
 
 
     @PostMapping("/room/{roomId}/booking")

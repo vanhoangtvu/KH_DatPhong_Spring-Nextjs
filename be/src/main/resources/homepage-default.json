@@ -2,15 +2,15 @@
   "brandName": "Fiin Home",
   "brandSubtitle": "Đặt phòng khách sạn hiện đại",
   "hotline": "1900 2026",
-  "heroBadge": "Mọi lúc, mọi nơi",
-  "heroTitle": "Chọn phòng chill, đặt nhanh trên điện thoại.",
-  "heroSubtitle": "Bố cục gọn, rõ, có thể vuốt qua để xem khu vực, phòng nổi bật và khung giờ.",
+  "heroBadge": "Đặt phòng nhanh",
+  "heroTitle": "Đặt phòng nhanh trên điện thoại",
+  "heroSubtitle": "Giao diện rõ ràng, chọn khu vực, phòng và khung giờ trong vài thao tác.",
   "introSectionTitle": "Trang giới thiệu",
-  "introSectionDescription": "Vuốt qua để xem các điểm nổi bật và cảm hứng lưu trú.",
+  "introSectionDescription": "Vuốt để xem các khu vực và phòng nổi bật.",
   "areas": [
     {
       "name": "Hẻm Duy Khổng",
-      "subtitle": "Chill, riêng tư, dễ chọn"
+      "subtitle": "Không gian riêng tư, dễ lựa chọn"
     },
     {
       "name": "Căn PG2-11",
@@ -60,7 +60,7 @@
   ],
   "days": ["Hôm nay", "Thứ 3", "Thứ 4", "Thứ 5"],
   "bookingSectionTitle": "Chủ động thời gian",
-  "bookingSectionSubtitle": "mọi lúc, mọi nơi",
+  "bookingSectionSubtitle": "Lịch trống cập nhật theo thời gian thực.",
   "roomLists": {
     "Hẻm Duy Khổng": [
       {

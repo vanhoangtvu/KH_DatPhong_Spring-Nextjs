@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -130,5 +131,27 @@ public class BookedRoomServiceImpl implements BookedRoomService {
     @Override
     public BookedRoom findByBookingConfirmationCode(String confirmationCode) {
         return bookedRoomRepository.findByBookingConfirmationCode(confirmationCode);
+    }
+
+    @Override
+    public List<BookedRoom> findBookingsByGuestNameAndPhone(String guestName, String guestPhone) {
+        String normalizedName = normalizeText(guestName);
+        String normalizedPhone = normalizePhone(guestPhone);
+
+        return bookedRoomRepository.findAll().stream()
+                .filter(booking -> normalizePhone(booking.getGuestPhone()).equals(normalizedPhone))
+                .filter(booking -> normalizeText(booking.getGuestName()).contains(normalizedName))
+                .toList();
+    }
+
+    private String normalizeText(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePhone(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\D", "");
     }
 }

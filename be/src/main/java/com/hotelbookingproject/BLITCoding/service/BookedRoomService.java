@@ -21,4 +21,6 @@ public interface BookedRoomService {
     List<BookedRoom> getAllBookings();
 
     List<BookedRoom> getBookingsByUserEmail(String email);
+
+    List<BookedRoom> findBookingsByGuestNameAndPhone(String guestName, String guestPhone);
 }

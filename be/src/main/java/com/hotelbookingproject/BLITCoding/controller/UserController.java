@@ -18,13 +18,13 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<User>> getUsers() {
-        return new ResponseEntity<>(userService.getUsers(), HttpStatus.FOUND);
+        return new ResponseEntity<>(userService.getUsers(), HttpStatus.OK);
     }
 
     @GetMapping("/{email}")
-    @PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<?> getUserByEmail(@PathVariable("email") String email) {
        try {
 
@@ -41,7 +41,7 @@ public class UserController {
     }
 
     @DeleteMapping("/delete/{email}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or (hasRole('ROLE_USER') and #email == principal.username)")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and #email == principal.username)")
     public ResponseEntity<String> deleteUser(@PathVariable("email") String email) {
         try{
             userService.deleteUser(email);

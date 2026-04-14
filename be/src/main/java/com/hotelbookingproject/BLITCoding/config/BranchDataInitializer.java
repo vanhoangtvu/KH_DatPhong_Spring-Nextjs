@@ -34,21 +34,21 @@ public class BranchDataInitializer implements CommandLineRunner {
         // Create 3 branches
         Branch branch1 = createBranch(
             "Căn PG2-11",
-            "Chi nhánh tại khu vực Vincom - Chill, riêng tư, dễ chọn",
+            "Chi nhánh khu Vincom, không gian riêng tư, dễ lựa chọn",
             "Căn PG2-11, khu Vincom",
             "1900 2026"
         );
 
         Branch branch2 = createBranch(
             "Hẻm Duy Khổng",
-            "Chi nhánh tại Hẻm Duy Khổng - Yên tĩnh, tiện nghi",
+            "Chi nhánh Hẻm Duy Khổng, yên tĩnh và tiện nghi",
             "Hẻm Duy Khổng",
             "1900 2027"
         );
 
         Branch branch3 = createBranch(
             "Quận 7",
-            "Chi nhánh tại Quận 7 - Hiện đại, gần trung tâm",
+            "Chi nhánh Quận 7, hiện đại và thuận tiện",
             "Phú Mỹ Hưng, Quận 7",
             "1900 2028"
         );

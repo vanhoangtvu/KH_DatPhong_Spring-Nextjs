@@ -97,7 +97,8 @@ const EMPTY_BOOKING_FORM: BookingFormState = {
   acceptedTerms: false,
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+console.log('API_BASE:', API_BASE);
 
 const getRoomDetailPath = (room: RoomItem) => `/room/${room.roomId}`;
 
@@ -110,19 +111,19 @@ const getLegendStyles = (label: string) => {
   }
   if (label === "Còn Trống") {
     return {
-      pill: "border-sky-200 bg-sky-50 text-sky-700",
-      dot: "bg-sky-400",
+      pill: "border-[#e2c9ab] bg-[#fff4e7] text-[#8b5e3c]",
+      dot: "bg-[#8b5e3c]",
     };
   }
   if (label === "Đang chọn") {
     return {
-      pill: "border-blue-300 bg-blue-50 text-blue-700",
-      dot: "bg-blue-500",
+      pill: "border-[#e2c9ab] bg-[#fff4e7] text-[#8b5e3c]",
+      dot: "bg-[#8b5e3c]",
     };
   }
   return {
-    pill: "border-[#d7e3ff] bg-white text-[#5e75b8]",
-    dot: "bg-[#9eb0e0]",
+    pill: "border-[#e2c9ab] bg-white text-[#8a6341]",
+    dot: "bg-[#c79a6b]",
   };
 };
 
@@ -131,6 +132,7 @@ export default function HomePage() {
   const showcaseTouchStartX = useRef<number | null>(null);
   const showcaseTouchStartY = useRef<number | null>(null);
   const showcaseSwipeHandled = useRef(false);
+  const dayStripRef = useRef<HTMLDivElement | null>(null);
   const [pageData, setPageData] = useState<HomePageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -143,20 +145,29 @@ export default function HomePage() {
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
 
   const loadHomePage = async (dayLabel?: string) => {
+    const shouldShowLoading = !pageData;
     try {
-      setLoading(true);
+      if (shouldShowLoading) {
+        setLoading(true);
+      }
       setError(null);
       const query = dayLabel ? `?dayLabel=${encodeURIComponent(dayLabel)}` : "";
+      console.log('Loading from API:', `${API_BASE}/api/public/home-page${query}`);
       const response = await fetch(`${API_BASE}/api/public/home-page${query}`);
+      console.log('Response status:', response.status);
       if (!response.ok) {
         throw new Error(`Không tải được dữ liệu (${response.status})`);
       }
       const data: HomePageResponse = await response.json();
+      console.log('Data loaded:', data);
       setPageData(data);
     } catch (err) {
+      console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi tải dữ liệu");
     } finally {
-      setLoading(false);
+      if (shouldShowLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -366,10 +377,10 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f5f5db] px-4 text-center text-[#4f67b0]">
+      <main className="flex min-h-screen items-center justify-center bg-[#f6eddc] px-4 text-center text-[#6b4a2d]">
         <div>
-          <div className="text-2xl font-black uppercase tracking-[0.08em]">LuxeStay</div>
-          <p className="mt-2 text-sm text-[#7f8ec6]">Đang tải dữ liệu từ backend...</p>
+          <div className="text-2xl font-black tracking-[-0.03em] text-balance">Fiin Home</div>
+          <p className="mt-2 text-sm text-[#9c7450]">Đang tải dữ liệu...</p>
         </div>
       </main>
     );
@@ -377,11 +388,11 @@ export default function HomePage() {
 
   if (error || !pageData) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f5f5db] px-4 text-center text-[#4f67b0]">
-        <div className="max-w-md rounded-[24px] bg-white/70 p-6 shadow-[0_14px_40px_rgba(70,98,172,0.08)]">
-          <div className="text-2xl font-black uppercase tracking-[0.08em]">LuxeStay</div>
-          <p className="mt-3 text-sm text-red-500">{error ?? "Không có dữ liệu hiển thị"}</p>
-          <p className="mt-2 text-sm text-[#7f8ec6]">
+      <main className="flex min-h-screen items-center justify-center bg-[#f6eddc] px-4 text-center text-[#6b4a2d]">
+        <div className="max-w-md rounded-[24px] bg-[#fffaf2]/80 p-6 shadow-[0_14px_40px_rgba(122,84,47,0.10)]">
+          <div className="text-2xl font-black tracking-[-0.03em] text-balance">LuxeStay</div>
+          <p className="mt-3 text-sm text-[#9c5c44]">{error ?? "Không có dữ liệu hiển thị"}</p>
+          <p className="mt-2 text-sm text-[#9c7450]">
             Hãy kiểm tra backend đang chạy và endpoint /api/public/home-page.
           </p>
         </div>
@@ -390,53 +401,53 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f5db] text-[#4562ac]">
+    <main className="min-h-screen bg-[#f6eddc] pb-28 text-[#6b4a2d] sm:pb-0">
       <section className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col px-3 pb-24 pt-3 sm:max-w-6xl sm:px-6 sm:pb-10 lg:max-w-7xl lg:px-8">
-        <header className="mb-3 flex items-center justify-between rounded-[24px] bg-white/40 px-4 py-3 shadow-[0_10px_40px_rgba(70,98,172,0.08)] backdrop-blur-sm sm:mb-5 sm:px-5">
+        <header className="mb-3 flex items-center justify-between rounded-[24px] bg-[#fff8ef]/65 px-4 py-3 shadow-[0_10px_40px_rgba(122,84,47,0.08)] backdrop-blur-sm sm:mb-5 sm:px-5">
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm sm:h-11 sm:w-11">
               <Image src="/LOGO%20FIIN.png" alt="Fiin Home logo" width={44} height={44} className="h-full w-full object-contain p-0.5" priority />
             </div>
             <div>
-              <div className="text-sm font-bold tracking-[0.18em] text-[#4361af] uppercase sm:text-base sm:tracking-[0.22em]">
+              <div className="text-sm font-bold tracking-[0.08em] text-[#7e5331] uppercase sm:text-base sm:tracking-[0.12em]">
                 {pageData.brandName}
               </div>
-              <div className="text-xs text-[#7f8ec6] sm:text-sm">{pageData.brandSubtitle}</div>
+              <div className="text-xs text-[#9c7450] sm:text-sm">{pageData.brandSubtitle}</div>
             </div>
           </div>
-          <div className="rounded-full bg-[#4361af] px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm">
+          <div className="rounded-full bg-[#8b5e3c] px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm">
             {pageData.hotline}
           </div>
         </header>
 
         <section className="mb-5 text-center sm:mb-7">
-          <h1 className="text-2xl font-black uppercase tracking-[0.04em] text-[#4f67b0] sm:text-4xl">
+          <h1 className="mx-auto max-w-4xl text-balance text-2xl font-black tracking-[-0.02em] text-[#6b4a2d] leading-[1.08] sm:text-4xl">
             {pageData.heroTitle}
           </h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-[#7f8ec6] sm:text-base">
+          <p className="mx-auto mt-2 max-w-xl text-sm text-[#9c7450] sm:text-base">
             {pageData.heroSubtitle}
           </p>
         </section>
 
         <section className="mb-5">
           <div className="mb-3 flex items-center justify-between px-1">
-            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#4f67b0]">
+            <div className="text-sm font-semibold tracking-[0.02em] text-[#7e5331]">
               {pageData.introSectionTitle}
             </div>
-            <div className="text-xs text-[#7f8ec6]">Vuốt qua để xem</div>
+            <div className="text-xs text-[#9c7450]">Vuốt để xem thêm</div>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {pageData.introCards.map((card) => (
               <article
                 key={card.title}
-                className="min-w-[84%] snap-center overflow-hidden rounded-[24px] bg-white shadow-[0_14px_40px_rgba(70,98,172,0.12)] sm:min-w-[420px]"
+                className="min-w-[84%] snap-center overflow-hidden rounded-[24px] bg-[#fffaf2] shadow-[0_14px_40px_rgba(122,84,47,0.10)] sm:min-w-[420px]"
               >
                 <div className="h-44 bg-cover bg-center sm:h-56" style={{ backgroundImage: `url("${card.image}")` }} />
                 <div className="p-4 sm:p-5">
-                  <div className="text-lg font-bold text-[#4f67b0] sm:text-2xl">{card.title}</div>
-                  <p className="mt-2 text-sm leading-6 text-[#7f8ec6] sm:text-base">{card.subtitle}</p>
+                  <div className="text-lg font-bold text-[#6b4a2d] sm:text-2xl">{card.title}</div>
+                  <p className="mt-2 text-sm leading-6 text-[#9c7450] sm:text-base">{card.subtitle}</p>
                   <button
-                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#4361af] px-4 py-2 text-sm font-semibold text-white transition-transform duration-300 hover:-translate-y-0.5 active:scale-95"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#8b5e3c] px-4 py-2 text-sm font-semibold text-white transition-transform duration-300 hover:-translate-y-0.5 active:scale-95"
                     onClick={() => {
                       if (card.title.includes("Vincom")) {
                         setSelectedArea("Căn PG2-11");
@@ -462,12 +473,12 @@ export default function HomePage() {
               onClick={() => setSelectedArea(area.name)}
               className={`min-w-[190px] rounded-[18px] border px-4 py-3 text-left transition-all duration-300 active:scale-95 sm:min-w-[240px] ${
                 selectedArea === area.name
-                  ? "border-[#4361af] bg-[#4361af] text-white shadow-lg"
-                  : "border-[#dfe6fb] bg-white/70 text-[#4f67b0]"
+                  ? "border-[#8b5e3c] bg-[#8b5e3c] text-white shadow-lg"
+                  : "border-[#e2c9ab] bg-[#fffaf2]/80 text-[#7e5331]"
               }`}
             >
               <div className="text-sm font-semibold sm:text-base">{area.name}</div>
-              <div className={`mt-1 text-xs sm:text-sm ${selectedArea === area.name ? "text-white/85" : "text-[#7f8ec6]"}`}>
+              <div className={`mt-1 text-xs sm:text-sm ${selectedArea === area.name ? "text-white/85" : "text-[#9c7450]"}`}>
                 {area.subtitle}
               </div>
             </button>
@@ -479,30 +490,30 @@ export default function HomePage() {
             <article className="rounded-[30px] bg-transparent">
               <div className="mx-auto max-w-[360px] sm:max-w-[560px]">
                 <div className="mb-4 text-center">
-                  <div className="inline-flex rounded-full bg-[#d7e3ff] px-5 py-2 text-lg font-medium text-[#4f67b0] shadow-sm sm:text-xl">
+                  <div className="inline-flex rounded-full bg-[#f0dfc9] px-5 py-2 text-lg font-medium text-[#7e5331] shadow-sm sm:text-xl">
                     {selectedArea}
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-[#7f8ec6]">
+                  <p className="mt-2 text-sm font-semibold text-[#9c7450]">
                     {selectedBranchRoomCount} phòng thuộc chi nhánh này
                   </p>
-                  <p className="mt-1 text-xs text-[#95a3cf]">Tổng phòng hiện có: {totalRoomCount}</p>
+                  <p className="mt-1 text-xs text-[#b08964]">Tổng phòng hiện có: {totalRoomCount}</p>
                 </div>
 
                 <div
-                  className="relative overflow-hidden rounded-[28px] bg-white p-3 shadow-[0_16px_50px_rgba(72,93,160,0.15)] sm:p-4"
+                  className="relative overflow-hidden rounded-[28px] bg-[#fff8ef] p-3 shadow-[0_16px_50px_rgba(122,84,47,0.10)] sm:p-4"
                   onTouchStart={handleShowcaseTouchStart}
                   onTouchMove={handleShowcaseTouchMove}
                   onTouchEnd={resetShowcaseTouch}
                   onTouchCancel={resetShowcaseTouch}
                 >
                   <div className="mb-3 flex items-center justify-between px-2 sm:px-3">
-                    <div className="text-lg font-black tracking-[0.12em] text-black sm:text-2xl">
+                    <div className="text-lg font-black tracking-[-0.02em] text-black sm:text-2xl">
                       {selectedShowcase.title}
                     </div>
-                    <div className="text-xs font-semibold text-[#8aa0d7] sm:text-sm">Mozi-style</div>
+                    <div className="text-xs font-semibold text-[#b08964] sm:text-sm">Hình ảnh thực tế</div>
                   </div>
 
-                  <div className="rounded-[22px] bg-[#f2f4fa] p-2 sm:p-3">
+                  <div className="rounded-[22px] bg-[#f3e8da] p-2 sm:p-3">
                     <div className="overflow-hidden rounded-[20px] bg-slate-200">
                       <div
                         className="aspect-[16/10] h-full w-full bg-cover bg-center transition-transform duration-500 hover:scale-105"
@@ -526,7 +537,7 @@ export default function HomePage() {
                     {selectedShowcase.times.map((time) => (
                       <div
                         key={time}
-                        className="rounded-full bg-[#eef3ff] px-3 py-2 text-center text-[11px] font-semibold text-[#435da7] shadow-sm sm:text-sm"
+                        className="rounded-full bg-[#f0dfc9] px-3 py-2 text-center text-[11px] font-semibold text-[#7e5331] shadow-sm sm:text-sm"
                       >
                         {time}
                       </div>
@@ -534,10 +545,10 @@ export default function HomePage() {
                   </div>
 
                   {selectedRoomList.length > 1 ? (
-                    <div className="mt-4 rounded-[22px] bg-[#f8faff] p-3 sm:p-4">
+                    <div className="mt-4 rounded-[22px] bg-[#fff6ea] p-3 sm:p-4">
                       <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="text-sm font-bold text-[#4f67b0] sm:text-base">Phòng trong chi nhánh này</div>
-                        <div className="text-xs text-[#7f8ec6]">{selectedRoomList.length} phòng</div>
+                        <div className="text-sm font-bold text-[#7e5331] sm:text-base">Phòng trong chi nhánh này</div>
+                        <div className="text-xs text-[#9c7450]">{selectedRoomList.length} phòng</div>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {selectedRoomList.slice(0, 6).map((room) => (
@@ -551,8 +562,8 @@ export default function HomePage() {
                               <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${room.image}")` }} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-[#4f67b0]">{room.name}</div>
-                              <div className="truncate text-xs text-[#7f8ec6]">{room.features.slice(0, 2).join(" • ")}</div>
+                              <div className="truncate text-sm font-semibold text-[#7e5331]">{room.name}</div>
+                              <div className="truncate text-xs text-[#9c7450]">{room.features.slice(0, 2).join(" • ")}</div>
                             </div>
                           </button>
                         ))}
@@ -567,7 +578,7 @@ export default function HomePage() {
                         key={`${dotRoom.title}-${dotIndex}`}
                         aria-label={`Chuyển đến mục ${dotIndex + 1}`}
                         onClick={() => setSelectedArea(pageData.areas[dotIndex]?.name ?? selectedArea)}
-                        className={`h-2.5 w-2.5 rounded-full ${dotIndex === selectedIndex ? "bg-[#2f7df6]" : "bg-[#cfd4df]"}`}
+                        className={`h-2.5 w-2.5 rounded-full ${dotIndex === selectedIndex ? "bg-[#8b5e3c]" : "bg-[#d8c2a4]"}`}
                       />
                     ))}
                   </div>
@@ -579,10 +590,10 @@ export default function HomePage() {
 
         <section id="booking-section" className="mt-8 rounded-[30px] bg-white/55 p-4 shadow-[0_14px_40px_rgba(70,98,172,0.08)] sm:p-6 lg:p-8">
           <div className="text-center">
-            <h2 className="text-2xl font-black uppercase tracking-[0.04em] text-[#4f67b0] sm:text-4xl">
+            <h2 className="mx-auto max-w-4xl text-balance text-2xl font-black tracking-[-0.02em] text-[#6b4a2d] leading-[1.08] sm:text-4xl">
               {pageData.bookingSectionTitle}
             </h2>
-            <p className="mt-2 inline-flex rounded-full bg-[#d7e3ff] px-5 py-2 text-sm text-[#5973bb] sm:text-base">
+              <p className="mt-2 inline-flex rounded-full bg-[#f0dfc9] px-5 py-2 text-sm text-[#7e5331] sm:text-base">
               {pageData.bookingSectionSubtitle}
             </p>
           </div>
@@ -593,7 +604,7 @@ export default function HomePage() {
                 key={area.name}
                 onClick={() => setSelectedArea(area.name)}
                 className={`whitespace-nowrap rounded-[18px] px-4 py-3 text-sm font-medium transition-all active:scale-95 sm:px-5 sm:text-base ${
-                  selectedArea === area.name ? "bg-[#4c67b2] text-white" : "border border-[#96a8db] bg-white text-[#4c67b2]"
+                  selectedArea === area.name ? "bg-[#8b5e3c] text-white" : "border border-[#e2c9ab] bg-[#fffaf2] text-[#7e5331]"
                 }`}
               >
                 {area.name}
@@ -606,7 +617,7 @@ export default function HomePage() {
             {/* Desktop view: inline arrows with days */}
             <div className="hidden md:flex md:items-center md:justify-center md:gap-2">
               <button
-                className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
+                className="text-2xl font-black text-[#8b5e3c] transition-transform active:scale-90"
                 onClick={() => {
                   const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
                   setSelectedDay(pageData.days[idx]);
@@ -620,15 +631,15 @@ export default function HomePage() {
                   onClick={() => setSelectedDay(day)}
                   className={`min-w-[96px] rounded-[14px] border px-3 py-3 text-sm font-semibold transition-all ${
                     selectedDay === day
-                      ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2]"
-                      : "border-[#9ab0e1] bg-white text-[#4c67b2]"
+                      ? "border-[#8b5e3c] bg-[#f0dfc9] text-[#7e5331]"
+                      : "border-[#e2c9ab] bg-[#fffaf2] text-[#7e5331]"
                   }`}
                 >
                   {day}
                 </button>
               ))}
               <button
-                className="text-2xl font-black text-[#4c67b2] transition-transform active:scale-90"
+                className="text-2xl font-black text-[#8b5e3c] transition-transform active:scale-90"
                 onClick={() => {
                   const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
                   setSelectedDay(pageData.days[idx]);
@@ -638,47 +649,42 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Mobile/Tablet view: scrollable with fixed arrows */}
-            <div className="relative md:hidden">
-              {/* Left arrow */}
-              <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center bg-gradient-to-r from-[#f5f5db] via-[#f5f5db] to-transparent pr-2">
+            {/* Mobile/Tablet view: compact row with separate arrows */}
+            <div className="md:hidden">
+              <div className="mb-2 flex items-center justify-between gap-3 px-1">
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl font-black text-[#4c67b2] shadow-md transition-transform active:scale-90"
+                  aria-label="Ngày trước"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2c9ab] bg-[#fffaf2] text-xl font-black text-[#8b5e3c] shadow-sm transition-transform active:scale-90"
                   onClick={() => {
-                    const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
-                    setSelectedDay(pageData.days[idx]);
+                    dayStripRef.current?.scrollBy({ left: -180, behavior: "smooth" });
                   }}
                 >
                   ‹
                 </button>
-              </div>
 
-              {/* Scrollable container */}
-              <div className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex gap-2 px-11">
-                  {pageData.days.map((day) => (
-                    <button
-                      key={day}
-                      onClick={() => setSelectedDay(day)}
-                      className={`min-w-[78px] flex-shrink-0 rounded-[14px] border px-3 py-3 text-xs font-semibold transition-all ${
-                        selectedDay === day
-                          ? "border-[#4c67b2] bg-[#dfe9ff] text-[#4c67b2] shadow-sm"
-                          : "border-[#9ab0e1] bg-white text-[#4c67b2]"
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
+                <div ref={dayStripRef} className="min-w-0 flex-1 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-2 px-1">
+                    {pageData.days.map((day) => (
+                      <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        className={`min-w-[78px] flex-shrink-0 rounded-[14px] border px-3 py-3 text-xs font-semibold transition-all ${
+                          selectedDay === day
+                            ? "border-[#8b5e3c] bg-[#f0dfc9] text-[#7e5331] shadow-sm"
+                            : "border-[#e2c9ab] bg-[#fffaf2] text-[#7e5331]"
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Right arrow */}
-              <div className="absolute right-0 top-0 bottom-0 z-20 flex items-center bg-gradient-to-l from-[#f5f5db] via-[#f5f5db] to-transparent pl-2">
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl font-black text-[#4c67b2] shadow-md transition-transform active:scale-90"
+                  aria-label="Ngày sau"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2c9ab] bg-[#fffaf2] text-xl font-black text-[#8b5e3c] shadow-sm transition-transform active:scale-90"
                   onClick={() => {
-                    const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
-                    setSelectedDay(pageData.days[idx]);
+                    dayStripRef.current?.scrollBy({ left: 180, behavior: "smooth" });
                   }}
                 >
                   ›
@@ -687,7 +693,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <h3 className="mt-6 text-center text-lg font-black uppercase tracking-[0.06em] text-[#4f67b0] sm:text-2xl">
+          <h3 className="mt-6 text-center text-lg font-black tracking-[-0.01em] text-[#6b4a2d] leading-[1.1] sm:text-2xl">
             Các khung giờ {selectedDay} của {selectedArea}
           </h3>
 
@@ -695,7 +701,7 @@ export default function HomePage() {
             {selectedRoomList.map((room) => (
               <article
                 key={room.name}
-                className="rounded-[26px] bg-[#f8f9f5] p-3 shadow-[0_10px_30px_rgba(70,98,172,0.06)] sm:p-4"
+                className="rounded-[26px] bg-[#fff8ef] p-3 shadow-[0_10px_30px_rgba(122,84,47,0.08)] sm:p-4"
                 role="button"
                 tabIndex={0}
                 onClick={() => router.push(getRoomDetailPath(room))}
@@ -713,9 +719,9 @@ export default function HomePage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="text-lg font-bold text-[#4f67b0] sm:text-2xl">{room.name}</div>
+                      <div className="text-lg font-bold tracking-[-0.015em] text-[#7e5331] sm:text-2xl">{room.name}</div>
                       {room.videoUrl ? (
-                        <span className="rounded-full bg-[#e7efff] px-2.5 py-1 text-[10px] font-semibold text-[#4361af] sm:text-xs">
+                          <span className="rounded-full bg-[#f0dfc9] px-2.5 py-1 text-[10px] font-semibold text-[#7e5331] sm:text-xs">
                           Có video
                         </span>
                       ) : null}
@@ -724,7 +730,7 @@ export default function HomePage() {
                       {room.features.slice(0, 6).map((feature) => (
                         <span
                           key={feature}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] bg-[#4c67b2] text-[10px] font-semibold text-white sm:h-8 sm:w-auto sm:px-2 sm:text-xs"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] bg-[#8b5e3c] text-[10px] font-semibold text-white sm:h-8 sm:w-auto sm:px-2 sm:text-xs"
                           title={feature}
                         >
                           {feature.slice(0, 1)}
@@ -744,7 +750,7 @@ export default function HomePage() {
                       <Link
                         href={getRoomDetailPath(room)}
                         onClick={(event) => event.stopPropagation()}
-                        className="inline-flex items-center rounded-full border border-[#cfe0ff] bg-white px-3 py-2 text-xs font-semibold text-[#4361af] transition-transform hover:-translate-y-0.5 active:scale-95 sm:text-sm"
+                        className="inline-flex items-center rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-3 py-2 text-xs font-semibold text-[#7e5331] transition-transform hover:-translate-y-0.5 active:scale-95 sm:text-sm"
                       >
                         Xem chi tiết
                       </Link>
@@ -765,8 +771,8 @@ export default function HomePage() {
                         bookingLocked || slot.status === "Đã Đặt"
                           ? "bg-slate-200 text-slate-500"
                           : selectedSlots[room.name] === slot.time
-                            ? "bg-[#4c67b2] text-white"
-                            : "bg-[#d5ecff] text-[#4c67b2]"
+                            ? "bg-[#8b5e3c] text-white"
+                            : "bg-[#f0dfc9] text-[#7e5331]"
                       }`}
                     >
                       <div className="text-[11px] font-semibold sm:text-xs">{slot.time}</div>
@@ -796,41 +802,41 @@ export default function HomePage() {
 
         <section className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-[24px] border border-white/70 bg-white/65 p-4 shadow-[0_10px_30px_rgba(70,98,172,0.06)] backdrop-blur-sm sm:p-5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-[#4f67b0]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#f0dfc9] px-3 py-1 text-sm font-bold text-[#7e5331]">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
               Đã Đặt
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#7f8ec6]">Màu trung tính, dễ đọc và không gây rối khi nhìn nhanh trên điện thoại.</p>
+            <p className="mt-3 text-sm leading-6 text-[#9c7450]">Màu trung tính, dễ đọc và không gây rối khi nhìn nhanh trên điện thoại.</p>
           </div>
           <div className="rounded-[24px] border border-white/70 bg-white/65 p-4 shadow-[0_10px_30px_rgba(70,98,172,0.06)] backdrop-blur-sm sm:p-5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-bold text-[#4f67b0]">
-              <span className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#f0dfc9] px-3 py-1 text-sm font-bold text-[#7e5331]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#8b5e3c]" />
               Còn Trống
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#7f8ec6]">Nút thời gian được giữ đủ lớn để thao tác thoải mái bằng ngón tay cái.</p>
+            <p className="mt-3 text-sm leading-6 text-[#9c7450]">Nút thời gian được giữ đủ lớn để thao tác thoải mái bằng ngón tay cái.</p>
           </div>
           <div className="rounded-[24px] border border-white/70 bg-white/65 p-4 shadow-[0_10px_30px_rgba(70,98,172,0.06)] backdrop-blur-sm sm:p-5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-[#4f67b0]">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#f0dfc9] px-3 py-1 text-sm font-bold text-[#7e5331]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#8b5e3c]" />
               Đang chọn
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#7f8ec6]">Màu nhấn nổi bật để biết ngay khung giờ nào đang được chọn.</p>
+            <p className="mt-3 text-sm leading-6 text-[#9c7450]">Màu nhấn nổi bật để biết ngay khung giờ nào đang được chọn.</p>
           </div>
         </section>
 
         <footer className="mt-6 rounded-[30px] border border-white/70 bg-white/70 p-5 shadow-[0_10px_30px_rgba(70,98,172,0.06)] backdrop-blur sm:p-6">
           <div className="mx-auto flex max-w-4xl flex-col gap-5 text-center">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-3 rounded-full border border-[#dfe6fb] bg-[#f7f9ff] px-4 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-[#4f67b0]">
+              <div className="inline-flex items-center gap-3 rounded-full border border-[#e2c9ab] bg-[#fff8ef] px-4 py-1 text-sm font-semibold tracking-[0.02em] text-[#7e5331]">
                 <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
                   <Image src="/LOGO%20FIIN.png" alt="Fiin Home logo" width={32} height={32} className="h-full w-full object-contain" />
                 </span>
                 <span>Fiin Home</span>
               </div>
-              <p className="mx-auto max-w-2xl text-sm leading-6 text-[#7f8ec6]">{pageData.footerDescription}</p>
+              <p className="mx-auto max-w-2xl text-sm leading-6 text-[#9c7450]">{pageData.footerDescription}</p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 text-sm text-[#4f67b0]">
+            <div className="flex flex-wrap justify-center gap-2 text-sm text-[#7e5331]">
               {pageData.footerTags.map((tag) => (
                 <span key={tag} className="rounded-full border border-[#dfe6fb] bg-white px-3 py-2 shadow-sm">
                   {tag}
@@ -839,17 +845,17 @@ export default function HomePage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 sm:items-stretch">
-              <div className="rounded-[24px] border border-[#edf1fb] bg-[#f8f9f5] p-4 text-left shadow-sm">
-                <div className="text-center text-sm font-semibold text-[#4f67b0] sm:text-left">Liên hệ</div>
-                <div className="mt-2 text-center text-sm leading-6 text-[#7f8ec6] sm:text-left">
+                <div className="rounded-[24px] border border-[#e2c9ab] bg-[#fff8ef] p-4 text-left shadow-sm">
+                <div className="text-center text-sm font-semibold text-[#7e5331] sm:text-left">Liên hệ</div>
+                <div className="mt-2 text-center text-sm leading-6 text-[#9c7450] sm:text-left">
                   {footerContactLines.map((line, index) => (
                     <div key={`${line}-${index}`}>{line}</div>
                   ))}
                 </div>
               </div>
-              <div className="rounded-[24px] border border-[#edf1fb] bg-[#f8f9f5] p-4 shadow-sm">
-                <div className="text-center text-sm font-semibold text-[#4f67b0]">Điều hướng nhanh</div>
-                <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm text-[#4f67b0]">
+              <div className="rounded-[24px] border border-[#e2c9ab] bg-[#fff8ef] p-4 shadow-sm">
+                <div className="text-center text-sm font-semibold text-[#7e5331]">Điều hướng nhanh</div>
+                <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm text-[#7e5331]">
                   {footerLinks.map((link, index) => {
                     const href = footerLinkUrls[index]?.trim() ?? "";
                     const isExternal = /^https?:\/\//.test(href);
@@ -886,9 +892,9 @@ export default function HomePage() {
 
       {showBookingForm && selectedBookingItem ? (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/45 p-3 sm:p-6">
-          <div className="mx-auto w-full max-w-[430px] rounded-[20px] bg-[#ecefd7] p-4 text-[#2d3f7a] shadow-[0_20px_70px_rgba(0,0,0,0.35)] sm:max-w-xl sm:p-6">
+            <div className="mx-auto w-full max-w-[430px] rounded-[20px] bg-[#fff6ea] p-4 text-[#6b4a2d] shadow-[0_20px_70px_rgba(122,84,47,0.18)] sm:max-w-xl sm:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-black uppercase tracking-[0.06em]">Thong tin dat phong</h2>
+              <h2 className="text-xl font-black tracking-[-0.01em] leading-[1.08]">Thông tin đặt phòng</h2>
               <button
                 className="rounded-lg border border-[#7b8ec7] px-3 py-1 text-sm"
                 onClick={() => setShowBookingForm(false)}
@@ -897,7 +903,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="rounded-[12px] border border-[#5a74bd] bg-[#c4dbe9] p-3 text-sm">
+            <div className="rounded-[12px] border border-[#e2c9ab] bg-[#f3e2cd] p-3 text-sm">
               <div className="grid grid-cols-[140px_1fr] gap-y-2">
                 <span className="font-semibold">Phong ban chon:</span>
                 <span>{selectedBookingItem.room.name} - {selectedArea}</span>
@@ -1025,7 +1031,7 @@ export default function HomePage() {
               <div className="rounded-lg border border-dashed border-[#6780bd] p-3">
                 <label className="mb-1 block font-semibold">Ma giam gia:</label>
                 <input
-                  className="w-full rounded-lg border border-[#4f69b4] bg-[#c4dbe9] px-3 py-2"
+                  className="w-full rounded-lg border border-[#e2c9ab] bg-[#fffaf2] px-3 py-2"
                   value={bookingForm.discountCode}
                   onChange={(e) => setBookingForm((p) => ({ ...p, discountCode: e.target.value }))}
                 />
@@ -1052,7 +1058,7 @@ export default function HomePage() {
               {bookingMessage ? <p className="text-sm text-[#cb2f2f]">{bookingMessage}</p> : null}
 
               <button
-                className="w-full rounded-xl bg-[#425ca7] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+                className="w-full rounded-xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
                 onClick={() => void handleBookingSubmit()}
                 disabled={submittingBooking}
               >
@@ -1063,7 +1069,7 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d7e0f4] bg-[#425aa4] px-4 py-4 text-white shadow-[0_-10px_30px_rgba(38,53,98,0.2)]">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d8c2a4] bg-[#8b5e3c] px-4 py-4 text-white shadow-[0_-10px_30px_rgba(122,84,47,0.18)]">
         <div className="mx-auto flex max-w-[430px] items-center justify-between gap-3 sm:max-w-6xl sm:px-2">
           <div>
             <div className="text-sm font-semibold sm:text-base">Tổng cộng: {selectedTotal.toLocaleString("vi-VN")} đ</div>
@@ -1087,7 +1093,7 @@ export default function HomePage() {
               }
             }}
           >
-            {bookingLocked ? "Tạm ngưng nhận booking" : "Đặt phòng →"}
+            {bookingLocked ? "Tạm ngưng nhận đặt phòng" : "Đặt phòng"}
           </button>
         </div>
         {bookingLocked && pageData.bookingNotice ? (
