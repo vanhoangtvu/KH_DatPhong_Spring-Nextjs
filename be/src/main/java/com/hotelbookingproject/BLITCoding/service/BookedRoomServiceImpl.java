@@ -50,6 +50,12 @@ public class BookedRoomServiceImpl implements BookedRoomService {
     }
 
     @Override
+    public BookedRoom findBookingById(Long bookingId) {
+        return bookedRoomRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new InvalidBookingException("Booking not found with ID: " + bookingId));
+    }
+
+    @Override
     public List<BookedRoom> getAllBookings() {
         return bookedRoomRepository.findAll();
     }

@@ -69,6 +69,30 @@ const formatPriceLikeOriginal = (originalText: string, amount: number) => {
   return `${amount.toLocaleString("vi-VN")}đ`;
 };
 
+const formatBookingFeedback = (value: string | null) => {
+  const text = value?.trim() || "";
+  if (!text) {
+    return "Đặt phòng thành công.";
+  }
+
+  const successMatch = text.match(/mã xác nhận\s*:\s*([A-Za-z0-9]+)/i);
+  if (/successfully/i.test(text)) {
+    return successMatch ? `Đặt phòng thành công. Mã xác nhận: ${successMatch[1]}` : "Đặt phòng thành công.";
+  }
+
+  return text;
+};
+
+const isSuccessFeedback = (value: string | null) => {
+  const text = value?.trim().toLowerCase() || "";
+  return text.includes("đặt phòng thành công") || text.includes("mã xác nhận") || text.includes("successfully");
+};
+
+const isBookedSlotStatus = (status: string) => {
+  const normalized = status.trim().toLowerCase();
+  return normalized === "đã đặt" || normalized === "hết chỗ";
+};
+
 const EMPTY_FORM: BookingFormState = {
   guestName: "",
   guestPhone: "",
@@ -149,6 +173,7 @@ export default function RoomDetailClient({
   const [bookingForm, setBookingForm] = useState<BookingFormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -163,7 +188,7 @@ export default function RoomDetailClient({
 
   const embedUrl = useMemo(() => getYoutubeEmbedUrl(room.videoUrl), [room.videoUrl]);
   const roomPriceLabel = typeof room.roomPrice === "number" ? room.roomPrice.toLocaleString("vi-VN") : String(room.roomPrice);
-  const availableSlots = useMemo(() => room.slots.filter((s) => s.status !== "Đã Đặt" && s.status !== "Hết chỗ"), [room.slots]);
+  const availableSlots = useMemo(() => room.slots.filter((s) => !isBookedSlotStatus(s.status)), [room.slots]);
   const normalizedPromoCode = promoCode?.trim().toUpperCase() ?? "";
   const normalizedInputCode = bookingForm.discountCode.trim().toUpperCase();
   const isPromoCodeMatched = Boolean(normalizedPromoCode) && normalizedInputCode === normalizedPromoCode;
@@ -177,11 +202,7 @@ export default function RoomDetailClient({
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Navigate
-    router.push(`/room/${roomId}`);
-    // Force refresh after navigation
-    setTimeout(() => {
-      router.refresh();
-    }, 100);
+    router.push(`/room/${roomId}?date=${encodeURIComponent(selectedDate)}`);
   };
 
   // Swipe handlers for mobile
@@ -366,12 +387,11 @@ export default function RoomDetailClient({
       const text = await response.text();
       if (!response.ok) throw new Error(text || "Đặt phòng thất bại");
 
-      setMessage(text || "Đặt phòng thành công");
+      const feedback = formatBookingFeedback(text);
+      setMessage(feedback);
       setBookingForm(EMPTY_FORM);
-      setTimeout(() => {
-        setShowBookingForm(false);
-        router.refresh();
-      }, 1500);
+      setShowBookingForm(false);
+      setSuccessMessage(feedback);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Đặt phòng thất bại");
     } finally {
@@ -545,7 +565,7 @@ export default function RoomDetailClient({
               
               <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3">
                 {room.slots.map((slot) => {
-                  const isDisabled = slot.status === "Đã Đặt" || slot.status === "Hết chỗ";
+                  const isDisabled = isBookedSlotStatus(slot.status);
                   const isSelected = selectedSlot === slot.time;
                   return (
                     <button
@@ -582,7 +602,7 @@ export default function RoomDetailClient({
 
                   <button
                     onClick={() => setShowBookingForm(true)}
-                    disabled={selectedSlotData.status === "Đã Đặt" || selectedSlotData.status === "Hết chỗ"}
+                    disabled={isBookedSlotStatus(selectedSlotData.status)}
                     className="w-full rounded-xl bg-[#8b5e3c] px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#734a2d] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-3"
                   >
                     Đặt phòng ngay
@@ -757,7 +777,11 @@ export default function RoomDetailClient({
                     </span>
                   </label>
 
-                  {message && <p className="text-xs text-red-600 sm:text-sm">{message}</p>}
+                  {message && (
+                    <p className={`text-xs sm:text-sm ${isSuccessFeedback(message) ? "text-emerald-700" : "text-red-600"}`}>
+                      {message}
+                    </p>
+                  )}
 
                   <div className="flex gap-2">
                     <button
@@ -785,6 +809,33 @@ export default function RoomDetailClient({
           </div>
         </div>
       </div>
+
+      {successMessage ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4 py-6">
+          <div className="w-full max-w-md rounded-[28px] bg-[#fffaf2] p-6 text-center shadow-[0_20px_70px_rgba(122,84,47,0.24)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-2xl font-black tracking-[-0.02em] text-[#7e5331]">Đã đặt thành công</h3>
+            <p className="mt-2 text-sm leading-6 text-[#9c7450]">{successMessage}</p>
+            <p className="mt-2 text-sm text-[#7e5331]">Bạn có thể tra cứu lại booking để xem trạng thái và mã xác nhận.</p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Link href="/tra-cuu-booking" className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95">
+                Tra cứu booking
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSuccessMessage(null)}
+                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[#e2c9ab] bg-white px-4 py-3 text-sm font-bold text-[#7e5331] shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

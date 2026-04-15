@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import RoomDetailBookingPanel from "@/components/RoomDetailBookingPanel";
+import { useRoomStateSocket } from "@/lib/useRoomStateSocket";
 
 type AreaItem = {
   name: string;
@@ -100,10 +102,109 @@ const EMPTY_BOOKING_FORM: BookingFormState = {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 console.log('API_BASE:', API_BASE);
 
-const getRoomDetailPath = (room: RoomItem) => `/room/${room.roomId}`;
+const getRoomDetailPath = (room: RoomItem, date?: string) => {
+  if (!date) {
+    return `/room/${room.roomId}`;
+  }
+
+  return `/room/${room.roomId}?date=${encodeURIComponent(date)}`;
+};
+const getSharedSelectedDateKey = () => "fiin-home-selected-date";
+
+const getDayLabelForDate = (dateValue: string) => {
+  if (!dateValue) {
+    return "";
+  }
+
+  const targetDate = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(targetDate.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+  const dayNames = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+
+  for (let offset = 0; offset <= 6; offset += 1) {
+    const candidate = new Date(today);
+    candidate.setHours(0, 0, 0, 0);
+    candidate.setDate(today.getDate() + offset);
+
+    if (candidate.toISOString().slice(0, 10) === dateValue) {
+      if (offset === 0) {
+        return "Hôm nay";
+      }
+      return dayNames[candidate.getDay()];
+    }
+  }
+
+  return "";
+};
+
+const formatDateForDisplay = (dateValue: string) => {
+  if (!dateValue) {
+    return "";
+  }
+
+  const parsed = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toLocaleDateString("vi-VN");
+};
+
+const getDateForDayLabel = (dayLabel: string) => {
+  if (!dayLabel) {
+    return "";
+  }
+
+  const today = new Date();
+  if (dayLabel.toLowerCase().includes("hôm nay")) {
+    return today.toISOString().slice(0, 10);
+  }
+
+  const dayNames = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const targetIndex = dayNames.findIndex((dayName) => dayName.toLowerCase() === dayLabel.trim().toLowerCase());
+  if (targetIndex < 0) {
+    return "";
+  }
+
+  for (let offset = 0; offset <= 6; offset += 1) {
+    const candidate = new Date(today);
+    candidate.setHours(0, 0, 0, 0);
+    candidate.setDate(today.getDate() + offset);
+    if (candidate.getDay() === targetIndex) {
+      return candidate.toISOString().slice(0, 10);
+    }
+  }
+
+  return "";
+};
+
+const parsePriceToVnd = (value: string) => {
+  if (!value) return 0;
+  const normalized = value.trim().toLowerCase().replace(/đ|\s/g, "");
+  const isKUnit = normalized.endsWith("k");
+  const digits = normalized.replace(/[^0-9]/g, "");
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return Number.isFinite(amount) ? (isKUnit ? amount * 1000 : amount) : 0;
+};
+
+const formatPriceLabel = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "0đ";
+  }
+
+  if (amount % 1000 === 0) {
+    return `${Math.round(amount / 1000)}k`;
+  }
+
+  return `${amount.toLocaleString("vi-VN")}đ`;
+};
 
 const getLegendStyles = (label: string) => {
-  if (label === "Đã Đặt") {
+  if (label.trim().toLowerCase() === "đã đặt") {
     return {
       pill: "border-slate-300 bg-slate-100 text-slate-700",
       dot: "bg-slate-400",
@@ -127,33 +228,73 @@ const getLegendStyles = (label: string) => {
   };
 };
 
+const isBookedSlotStatus = (status: string) => {
+  const normalized = status.trim().toLowerCase();
+  return normalized === "đã đặt" || normalized === "hết chỗ";
+};
+
 export default function HomePage() {
   const router = useRouter();
   const showcaseTouchStartX = useRef<number | null>(null);
   const showcaseTouchStartY = useRef<number | null>(null);
   const showcaseSwipeHandled = useRef(false);
   const dayStripRef = useRef<HTMLDivElement | null>(null);
+  const todayDate = new Date().toISOString().slice(0, 10);
   const [pageData, setPageData] = useState<HomePageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedArea, setSelectedArea] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedDay, setSelectedDay] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    const queryDate = new URLSearchParams(window.location.search).get("date");
+    if (queryDate) {
+      const queryDayLabel = getDayLabelForDate(queryDate);
+      return queryDayLabel || "Hôm nay";
+    }
+
+    const storedDate = window.sessionStorage.getItem(getSharedSelectedDateKey());
+    return storedDate ? getDayLabelForDate(storedDate) : "Hôm nay";
+  });
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    const queryDate = new URLSearchParams(window.location.search).get("date");
+    if (queryDate) {
+      return queryDate;
+    }
+
+    return window.sessionStorage.getItem(getSharedSelectedDateKey()) ?? todayDate;
+  });
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookingForm, setBookingForm] = useState<BookingFormState>(EMPTY_BOOKING_FORM);
   const [submittingBooking, setSubmittingBooking] = useState(false);
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
+  const [bookingSuccessMessage, setBookingSuccessMessage] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  const loadHomePage = async (dayLabel?: string) => {
+  const loadHomePage = async (dayLabel?: string, date?: string) => {
     const shouldShowLoading = !pageData;
     try {
       if (shouldShowLoading) {
         setLoading(true);
       }
       setError(null);
-      const query = dayLabel ? `?dayLabel=${encodeURIComponent(dayLabel)}` : "";
+      const query = date
+        ? `?date=${encodeURIComponent(date)}`
+        : dayLabel
+          ? `?dayLabel=${encodeURIComponent(dayLabel)}`
+          : "";
       console.log('Loading from API:', `${API_BASE}/api/public/home-page${query}`);
-      const response = await fetch(`${API_BASE}/api/public/home-page${query}`);
+      const response = await fetch(`${API_BASE}/api/public/home-page${query}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       console.log('Response status:', response.status);
       if (!response.ok) {
         throw new Error(`Không tải được dữ liệu (${response.status})`);
@@ -172,13 +313,31 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    void loadHomePage();
-  }, []);
+    if (!selectedDay) return;
+    const nextDate = getDateForDayLabel(selectedDay) || selectedDate;
+    if (typeof window !== "undefined" && nextDate) {
+      window.sessionStorage.setItem(getSharedSelectedDateKey(), nextDate);
+    }
+    if (nextDate) {
+      setSelectedDate(nextDate);
+    }
+  }, [selectedDay]);
 
   useEffect(() => {
-    if (!selectedDay) return;
-    void loadHomePage(selectedDay);
-  }, [selectedDay]);
+    if (typeof window === "undefined" || !selectedDate) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("date", selectedDate);
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    void loadHomePage(undefined, selectedDate);
+  }, [selectedDate, refreshTick]);
+
+  useRoomStateSocket(() => {
+    setRefreshTick((value) => value + 1);
+  });
 
   useEffect(() => {
     if (!pageData) return;
@@ -187,10 +346,32 @@ export default function HomePage() {
       setSelectedArea(pageData.areas[0]?.name ?? "");
     }
 
-    if (!selectedDay || !pageData.days.includes(selectedDay)) {
-      setSelectedDay(pageData.days[0] ?? "");
+    if (!selectedDay) {
+      if (selectedDate) {
+        const storedDayLabel = getDayLabelForDate(selectedDate);
+        if (storedDayLabel) {
+          setSelectedDay(storedDayLabel);
+        } else {
+          setSelectedDay(pageData.days[0] ?? "");
+        }
+        return;
+      }
+
+      const firstDay = pageData.days[0] ?? "";
+      setSelectedDay(firstDay);
+      if (firstDay) {
+        const firstDate = getDateForDayLabel(firstDay);
+        if (firstDate) {
+          setSelectedDate(firstDate);
+        }
+      }
+      return;
     }
-  }, [pageData, selectedArea, selectedDay]);
+
+    if (pageData.days.includes(selectedDay)) {
+      return;
+    }
+  }, [pageData, selectedArea, selectedDay, selectedDate]);
 
   const selectedIndex = useMemo(() => {
     if (!pageData) return 0;
@@ -217,7 +398,7 @@ export default function HomePage() {
   const selectedTotal = selectedRoomList.reduce((sum, room) => {
     const slotTime = selectedSlots[room.name];
     const slot = room.slots.find((item) => item.time === slotTime);
-    const amount = slot ? Number(slot.price.replace("k", "")) : 0;
+    const amount = slot ? parsePriceToVnd(slot.price) : 0;
     return sum + amount;
   }, 0);
 
@@ -364,7 +545,6 @@ export default function HomePage() {
       }
 
       setBookingMessage(text || "Đặt phòng thành công");
-      await loadHomePage(selectedDay);
       setSelectedSlots({});
       setBookingForm(EMPTY_BOOKING_FORM);
       setTimeout(() => setShowBookingForm(false), 1200);
@@ -576,7 +756,7 @@ export default function HomePage() {
                             key={room.roomId}
                             type="button"
                             className="flex items-center gap-3 rounded-[18px] border border-[#dfe6fb] bg-white p-3 text-left shadow-sm transition-transform active:scale-[0.99]"
-                            onClick={() => router.push(getRoomDetailPath(room))}
+                            onClick={() => router.push(getRoomDetailPath(room, selectedDate))}
                           >
                             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-200">
                               <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${room.image}")` }} />
@@ -724,11 +904,11 @@ export default function HomePage() {
                 className="rounded-[26px] bg-[#fff8ef] p-3 shadow-[0_10px_30px_rgba(122,84,47,0.08)] sm:p-4"
                 role="button"
                 tabIndex={0}
-                onClick={() => router.push(getRoomDetailPath(room))}
+                onClick={() => router.push(getRoomDetailPath(room, selectedDate))}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    router.push(getRoomDetailPath(room));
+                    router.push(getRoomDetailPath(room, selectedDate));
                   }
                 }}
               >
@@ -768,7 +948,7 @@ export default function HomePage() {
                     ) : null}
                     <div className="mt-3">
                       <Link
-                        href={getRoomDetailPath(room)}
+                        href={getRoomDetailPath(room, selectedDate)}
                         onClick={(event) => event.stopPropagation()}
                         className="inline-flex items-center rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-3 py-2 text-xs font-semibold text-[#7e5331] transition-transform hover:-translate-y-0.5 active:scale-95 sm:text-sm"
                       >
@@ -782,13 +962,13 @@ export default function HomePage() {
                   {room.slots.map((slot) => (
                     <button
                       key={slot.time}
-                      disabled={bookingLocked || slot.status === "Đã Đặt"}
+                      disabled={bookingLocked || isBookedSlotStatus(slot.status)}
                       onClick={(event) => {
                         event.stopPropagation();
                         handleSlotPick(room.name, slot.time);
                       }}
                       className={`rounded-[14px] px-2 py-3 text-center transition-transform duration-300 active:scale-95 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-80 ${
-                        bookingLocked || slot.status === "Đã Đặt"
+                        bookingLocked || isBookedSlotStatus(slot.status)
                           ? "bg-slate-200 text-slate-500"
                           : selectedSlots[room.name] === slot.time
                             ? "bg-[#8b5e3c] text-white"
@@ -888,7 +1068,6 @@ export default function HomePage() {
                     if (!href) {
                       return (
                         <span key={link} className="inline-flex min-h-9 items-center rounded-full border border-[#dfe6fb] bg-white px-4 py-1.5 text-[#8aa0d6] shadow-sm">
-                          {link}
                         </span>
                       );
                     }
@@ -915,177 +1094,57 @@ export default function HomePage() {
 
       {showBookingForm && selectedBookingItem ? (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/45 p-3 sm:p-6">
-            <div className="mx-auto w-full max-w-[430px] rounded-[20px] bg-[#fff6ea] p-4 text-[#6b4a2d] shadow-[0_20px_70px_rgba(122,84,47,0.18)] sm:max-w-xl sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="mx-auto w-full max-w-5xl rounded-[20px] bg-[#fff6ea] p-4 text-[#6b4a2d] shadow-[0_20px_70px_rgba(122,84,47,0.18)] sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-black tracking-[-0.01em] leading-[1.08]">Thông tin đặt phòng</h2>
               <button
                 className="rounded-lg border border-[#7b8ec7] px-3 py-1 text-sm"
                 onClick={() => setShowBookingForm(false)}
               >
-                Dong
+                Đóng
               </button>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2c9ab] bg-[#f3e2cd] p-3 text-sm">
-              <div className="grid grid-cols-[140px_1fr] gap-y-2">
-                <span className="font-semibold">Phong ban chon:</span>
-                <span>{selectedBookingItem.room.name} - {selectedArea}</span>
-                <span className="font-semibold">Gio nhan phong:</span>
-                <span>{selectedBookingItem.slot.time} ngay {parseDayToDate(selectedDay)}</span>
-                <span className="font-semibold">Tong tien:</span>
-                <span>{selectedBookingItem.slot.price}</span>
-              </div>
+            <RoomDetailBookingPanel
+              roomId={selectedBookingItem.room.roomId}
+              roomName={selectedBookingItem.room.name}
+              areaName={selectedArea}
+              slots={selectedBookingItem.room.slots}
+              bookingDate={parseDayToDate(selectedDay)}
+              selectedDayLabel={selectedDay}
+              initialSelectedTime={selectedBookingItem.slot.time}
+              onBooked={(feedback) => {
+                setSelectedSlots({});
+                setShowBookingForm(false);
+                setBookingMessage(null);
+                setBookingSuccessMessage(feedback);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {bookingSuccessMessage ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4 py-6">
+          <div className="w-full max-w-md rounded-[28px] bg-[#fffaf2] p-6 text-center shadow-[0_20px_70px_rgba(122,84,47,0.24)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
             </div>
-
-            <div className="mt-4 space-y-3 text-sm">
-              <div>
-                <label className="mb-1 block font-semibold">Ho ten: *</label>
-                <input
-                  className="w-full rounded-lg border border-[#d5d8de] bg-white px-3 py-2"
-                  value={bookingForm.guestName}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, guestName: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">So dien thoai / Zalo: *</label>
-                <input
-                  className="w-full rounded-lg border border-[#d5d8de] bg-white px-3 py-2"
-                  value={bookingForm.guestPhone}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, guestPhone: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">Nhan thong tin dat phong qua email: *</label>
-                <input
-                  className="w-full rounded-lg border border-[#d5d8de] bg-white px-3 py-2"
-                  type="email"
-                  value={bookingForm.guestEmail}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, guestEmail: e.target.value }))}
-                />
-                <label className="mt-2 flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={bookingForm.receiveBookingEmail}
-                    onChange={(e) => setBookingForm((p) => ({ ...p, receiveBookingEmail: e.target.checked }))}
-                  />
-                  Gui thong tin booking vao email
-                </label>
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">So luong khach:</label>
-                <div className="flex items-center overflow-hidden rounded-lg border border-[#d5d8de] bg-white">
-                  <button
-                    className="px-4 py-2 text-lg"
-                    onClick={() => setBookingForm((p) => ({ ...p, guestCount: Math.max(1, p.guestCount - 1) }))}
-                  >
-                    -
-                  </button>
-                  <input
-                    className="w-full border-x border-[#d5d8de] px-3 py-2 text-center"
-                    type="number"
-                    min={1}
-                    value={bookingForm.guestCount}
-                    onChange={(e) => setBookingForm((p) => ({ ...p, guestCount: Math.max(1, Number(e.target.value || 1)) }))}
-                  />
-                  <button
-                    className="px-4 py-2 text-lg"
-                    onClick={() => setBookingForm((p) => ({ ...p, guestCount: p.guestCount + 1 }))}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">Ban ghe home bang phuong tien gi?</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    className={`rounded-lg border px-3 py-3 font-semibold ${bookingForm.transportType === "Xe may" ? "border-[#4461ad] bg-[#4e67ad] text-white" : "border-[#7f95cb] bg-[#c7d9d7]"}`}
-                    onClick={() => setBookingForm((p) => ({ ...p, transportType: "Xe may" }))}
-                  >
-                    Xe may
-                  </button>
-                  <button
-                    className={`rounded-lg border px-3 py-3 font-semibold ${bookingForm.transportType === "Xe o to" ? "border-[#4461ad] bg-[#4e67ad] text-white" : "border-[#7f95cb] bg-[#c7d9d7]"}`}
-                    onClick={() => setBookingForm((p) => ({ ...p, transportType: "Xe o to" }))}
-                  >
-                    Xe o to
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">Chung minh nhan dan: *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="rounded-lg border border-dashed border-[#6f84bd] bg-[#f1f2f6] p-3 text-center text-xs">
-                    Mat truoc
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="mt-2 block w-full text-[11px]"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const value = await toBase64(file);
-                        setBookingForm((p) => ({ ...p, idCardFrontImage: value }));
-                      }}
-                    />
-                  </label>
-                  <label className="rounded-lg border border-dashed border-[#6f84bd] bg-[#f1f2f6] p-3 text-center text-xs">
-                    Mat sau
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="mt-2 block w-full text-[11px]"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const value = await toBase64(file);
-                        setBookingForm((p) => ({ ...p, idCardBackImage: value }));
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-dashed border-[#6780bd] p-3">
-                <label className="mb-1 block font-semibold">Ma giam gia:</label>
-                <input
-                  className="w-full rounded-lg border border-[#e2c9ab] bg-[#fffaf2] px-3 py-2"
-                  value={bookingForm.discountCode}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, discountCode: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block font-semibold">Ghi chu:</label>
-                <textarea
-                  className="h-24 w-full rounded-lg border border-[#d5d8de] bg-white px-3 py-2"
-                  value={bookingForm.note}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, note: e.target.value }))}
-                />
-              </div>
-
-              <label className="flex items-center gap-2 text-sm font-semibold text-[#2a3d76]">
-                <input
-                  type="checkbox"
-                  checked={bookingForm.acceptedTerms}
-                  onChange={(e) => setBookingForm((p) => ({ ...p, acceptedTerms: e.target.checked }))}
-                />
-                Xac nhan voi dieu khoan va dieu kien
-              </label>
-
-              {bookingMessage ? <p className="text-sm text-[#cb2f2f]">{bookingMessage}</p> : null}
-
+            <h3 className="mt-4 text-2xl font-black tracking-[-0.02em] text-[#7e5331]">Đã đặt thành công</h3>
+            <p className="mt-2 text-sm leading-6 text-[#9c7450]">{bookingSuccessMessage}</p>
+            <p className="mt-2 text-sm text-[#7e5331]">Bạn có thể tra cứu booking ngay để xem lại trạng thái và mã xác nhận.</p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Link href="/tra-cuu-booking" className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95">
+                Tra cứu booking
+              </Link>
               <button
-                className="w-full rounded-xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
-                onClick={() => void handleBookingSubmit()}
-                disabled={submittingBooking}
+                type="button"
+                onClick={() => setBookingSuccessMessage(null)}
+                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[#e2c9ab] bg-white px-4 py-3 text-sm font-bold text-[#7e5331] shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95"
               >
-                {submittingBooking ? "Dang gui dat phong..." : "Xac nhan dat phong"}
+                Đóng
               </button>
             </div>
           </div>
@@ -1095,7 +1154,7 @@ export default function HomePage() {
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d8c2a4] bg-[#8b5e3c] px-4 py-4 text-white shadow-[0_-10px_30px_rgba(122,84,47,0.18)]">
         <div className="mx-auto flex max-w-[430px] items-center justify-between gap-3 sm:max-w-6xl sm:px-2">
           <div>
-            <div className="text-sm font-semibold sm:text-base">Tổng cộng: {selectedTotal.toLocaleString("vi-VN")} đ</div>
+            <div className="text-sm font-semibold sm:text-base">Tổng cộng: {formatPriceLabel(selectedTotal)}</div>
             <div className="text-xs text-white/75 sm:text-sm">
               {selectedRoomCount > 0 ? `${selectedRoomCount} khung giờ đã chọn` : "Chưa chọn khung giờ nào"}
             </div>

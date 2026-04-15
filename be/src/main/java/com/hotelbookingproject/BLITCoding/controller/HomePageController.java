@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Locale;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,7 +31,13 @@ public class HomePageController {
     private final BookedRoomService bookedRoomService;
 
     @GetMapping("/home-page")
-    public ResponseEntity<HomePageResponse> getHomePageData(@RequestParam(required = false) String dayLabel) {
+    public ResponseEntity<HomePageResponse> getHomePageData(
+            @RequestParam(required = false) String dayLabel,
+            @RequestParam(required = false) String date) {
+        if (date != null && !date.isBlank()) {
+            return ResponseEntity.ok(homePageConfigService.getHomePageData(LocalDate.parse(date)));
+        }
+
         return ResponseEntity.ok(dayLabel == null || dayLabel.isBlank()
                 ? homePageConfigService.getHomePageData()
                 : homePageConfigService.getHomePageData(dayLabel));
@@ -54,7 +62,7 @@ public class HomePageController {
                     return bookingDate.equals(date);
                 })
                 .map(booking -> {
-                    String slotTime = booking.getSelectedSlotTime() == null ? "" : booking.getSelectedSlotTime().trim();
+                    String slotTime = normalizeSlotKey(booking.getSelectedSlotTime());
                     System.out.println("Booked slot time: " + slotTime + " for date: " + date);
                     return slotTime;
                 })
@@ -69,7 +77,7 @@ public class HomePageController {
                     if (booking.getCheckInDate() == null) return false;
                     return booking.getCheckInDate().toString().equals(today);
                 })
-                .map(booking -> booking.getSelectedSlotTime() == null ? "" : booking.getSelectedSlotTime().trim())
+                .map(booking -> normalizeSlotKey(booking.getSelectedSlotTime()))
                 .filter(value -> !value.isBlank())
                 .collect(Collectors.toSet());
         }
@@ -108,9 +116,16 @@ public class HomePageController {
         return java.util.stream.IntStream.range(0, size)
                 .mapToObj(i -> {
                     String time = times.get(i);
-                    String status = bookedTimes.contains(time) ? "Đã Đặt" : statuses.get(i);
+                    String status = bookedTimes.contains(normalizeSlotKey(time)) ? "Đã Đặt" : statuses.get(i);
                     return new RoomDetailResponse.RoomDetailTimeSlot(time, prices.get(i), status);
                 })
                 .toList();
+    }
+
+    private String normalizeSlotKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
     }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import RoomDetailClient from "./RoomDetailClient";
+import { useRoomStateSocket } from "@/lib/useRoomStateSocket";
 
 type RoomDetailResponse = {
   roomId: number;
@@ -29,6 +30,7 @@ type HomePageResponse = {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 const getSelectedDateStorageKey = (roomId: string) => `fiin-home-room-date-${roomId}`;
+const getSharedSelectedDateKey = () => "fiin-home-selected-date";
 
 export default function RoomDetailPage() {
   const params = useParams();
@@ -39,8 +41,15 @@ export default function RoomDetailPage() {
   const [promoPercent, setPromoPercent] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (typeof window === "undefined") {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    return new URLSearchParams(window.location.search).get("date") ?? new Date().toISOString().split('T')[0];
+  });
   const [isHydrated, setIsHydrated] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined" || !roomIdParam) {
@@ -57,8 +66,16 @@ export default function RoomDetailPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && roomIdParam && isHydrated) {
       window.sessionStorage.setItem(getSelectedDateStorageKey(roomIdParam), selectedDate);
+      window.sessionStorage.setItem(getSharedSelectedDateKey(), selectedDate);
     }
   }, [roomIdParam, selectedDate, isHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !selectedDate) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("date", selectedDate);
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }, [selectedDate]);
 
   useEffect(() => {
     const loadRoomData = async () => {
@@ -112,7 +129,11 @@ export default function RoomDetailPage() {
     };
 
     loadRoomData();
-  }, [roomIdParam, selectedDate]);
+  }, [roomIdParam, selectedDate, refreshTick]);
+
+  useRoomStateSocket(() => {
+    setRefreshTick((value) => value + 1);
+  });
 
   if (loading) {
     return (
@@ -131,7 +152,7 @@ export default function RoomDetailPage() {
         <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-black text-[#8b5e3c]">Không tìm thấy phòng</h1>
           <p className="mt-2 text-sm text-slate-500">{error || "Phòng này không tồn tại"}</p>
-          <Link href="/" className="mt-4 inline-flex rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-4 py-2 text-sm font-semibold text-[#8b5e3c]">
+          <Link href={`/?date=${encodeURIComponent(selectedDate)}`} className="mt-4 inline-flex rounded-full border border-[#e2c9ab] bg-[#fffaf2] px-4 py-2 text-sm font-semibold text-[#8b5e3c]">
             ← Quay lại trang chủ
           </Link>
         </div>

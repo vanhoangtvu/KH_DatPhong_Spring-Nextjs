@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Locale;
+import java.time.LocalDate;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,7 +50,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
             config = homePageConfigRepository.save(config);
         }
         fillMissingDefaults(config);
-        return buildResponse(config, null);
+        return buildResponse(config, (String) null);
     }
 
     @Override
@@ -65,11 +67,23 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
 
     @Override
     @Transactional
+    public HomePageResponse getHomePageData(LocalDate date) {
+        HomePageConfig config = homePageConfigRepository.findByConfigKey(CONFIG_KEY)
+                .orElseGet(() -> homePageConfigRepository.save(defaultConfig()));
+        if (normalizeLegacyCopy(config)) {
+            config = homePageConfigRepository.save(config);
+        }
+        fillMissingDefaults(config);
+        return buildResponseForDate(config, date);
+    }
+
+    @Override
+    @Transactional
     public HomePageResponse resetHomePageData() {
         homePageConfigRepository.findByConfigKey(CONFIG_KEY).ifPresent(homePageConfigRepository::delete);
         HomePageConfig defaultConfig = defaultConfig();
         homePageConfigRepository.save(defaultConfig);
-        return buildResponse(defaultConfig, null);
+        return buildResponse(defaultConfig, (String) null);
     }
 
     @Override
@@ -106,7 +120,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         config.setAcceptingBookings(homePageResponse.acceptingBookings());
         config.setBookingNotice(homePageResponse.bookingNotice());
         homePageConfigRepository.save(config);
-        return buildResponse(config, null);
+        return buildResponse(config, (String) null);
     }
 
     @Override
@@ -135,6 +149,14 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
     }
 
     private HomePageResponse buildResponse(HomePageConfig config, String dayLabel) {
+        return buildResponse(config, dayLabel, null);
+    }
+
+    private HomePageResponse buildResponseForDate(HomePageConfig config, LocalDate date) {
+        return buildResponse(config, null, date);
+    }
+
+    private HomePageResponse buildResponse(HomePageConfig config, String dayLabel, LocalDate date) {
         List<Room> allRooms = roomService.getAllRooms();
         
         // Filter rooms by active branches
@@ -152,7 +174,7 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
                 .toList();
         
         rooms = orderedRooms(rooms);
-        Map<Long, Set<String>> bookedSlotTimesByRoom = buildBookedSlotTimesByRoom(rooms, dayLabel);
+        Map<Long, Set<String>> bookedSlotTimesByRoom = buildBookedSlotTimesByRoom(rooms, dayLabel, date);
 
         // Generate dynamic day labels based on current date
         List<String> days = generateDynamicDays();
@@ -222,23 +244,25 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         return days;
     }
 
-    private Map<Long, Set<String>> buildBookedSlotTimesByRoom(List<Room> rooms, String dayLabel) {
+    private Map<Long, Set<String>> buildBookedSlotTimesByRoom(List<Room> rooms, String dayLabel, LocalDate targetDate) {
         Map<Long, Set<String>> result = new HashMap<>();
-        
-        // Calculate the actual date from dayLabel
-        java.time.LocalDate targetDate = calculateDateFromDayLabel(dayLabel);
+
+        if (targetDate == null) {
+            targetDate = calculateDateFromDayLabel(dayLabel);
+        }
+        LocalDate effectiveDate = targetDate;
         
         for (Room room : rooms) {
                 Set<String> bookedTimes = bookedRoomService.getActiveBookingsByRoomId(room.getId()).stream()
                     .filter(booking -> {
                         // Filter by actual checkInDate, not just day label
-                        if (targetDate != null && booking.getCheckInDate() != null) {
-                            return booking.getCheckInDate().equals(targetDate);
+                        if (effectiveDate != null && booking.getCheckInDate() != null) {
+                            return booking.getCheckInDate().equals(effectiveDate);
                         }
                         // Fallback to day label matching if date is not available
                         return matchesDayLabel(dayLabel, booking.getSelectedDayLabel());
                     })
-                    .map(booking -> Optional.ofNullable(booking.getSelectedSlotTime()).orElse("").trim())
+                    .map(booking -> normalizeSlotKey(booking.getSelectedSlotTime()))
                     .filter(value -> !value.isBlank())
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             result.put(room.getId(), bookedTimes);
@@ -374,12 +398,19 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         List<TimeSlot> slots = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             String time = times.get(i);
-            String status = bookedSlotTimes != null && bookedSlotTimes.contains(time)
+            String status = bookedSlotTimes != null && bookedSlotTimes.contains(normalizeSlotKey(time))
                     ? "Đã Đặt"
                     : statuses.get(i);
             slots.add(new TimeSlot(time, prices.get(i), status));
         }
         return slots;
+    }
+
+    private String normalizeSlotKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
     }
 
     private List<String> buildSlotTimes(Room room) {

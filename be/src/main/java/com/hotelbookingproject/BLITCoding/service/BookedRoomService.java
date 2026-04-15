@@ -14,6 +14,8 @@ public interface BookedRoomService {
 
     void cancelBooking(Long bookingId);
 
+    BookedRoom findBookingById(Long bookingId);
+
     String saveBooking(Long roomId, BookedRoom bookingRequest);
 
     String updateBooking(BookedRoom booking);

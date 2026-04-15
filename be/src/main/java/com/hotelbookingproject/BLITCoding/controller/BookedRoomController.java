@@ -8,6 +8,7 @@ import com.hotelbookingproject.BLITCoding.response.BookingResponse;
 import com.hotelbookingproject.BLITCoding.response.RoomResponse;
 import com.hotelbookingproject.BLITCoding.service.BookedRoomService;
 import com.hotelbookingproject.BLITCoding.service.RoomService;
+import com.hotelbookingproject.BLITCoding.websocket.RoomStateWebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ public class BookedRoomController {
 
     private final BookedRoomService bookedRoomService;
     private final RoomService roomService;
+    private final RoomStateWebSocketService roomStateWebSocketService;
 
     @GetMapping("/all-bookings")
     @PreAuthorize("hasRole('ADMIN')")
@@ -91,8 +93,8 @@ public class BookedRoomController {
                                          @RequestBody BookedRoom bookingRequest){
         try{
             String confirmationCode = bookedRoomService.saveBooking(roomId, bookingRequest);
-            return ResponseEntity.ok("Room Booked Successfully!" +
-                    " Your confirmation code" + confirmationCode);
+            roomStateWebSocketService.broadcastRoomStateChanged("BOOKING_CREATED");
+            return ResponseEntity.ok("Đặt phòng thành công. Mã xác nhận: " + confirmationCode);
 
         }catch (InvalidBookingException e){
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -104,8 +106,15 @@ public class BookedRoomController {
 
     @DeleteMapping("/booking/{bookingId}/delete")
     @PreAuthorize("hasRole('ADMIN')")
-    public void cancelBooking(@PathVariable Long bookingId){
-        bookedRoomService.cancelBooking(bookingId);
+    public ResponseEntity<?> cancelBooking(@PathVariable Long bookingId){
+        try {
+            bookedRoomService.findBookingById(bookingId);
+            bookedRoomService.cancelBooking(bookingId);
+            roomStateWebSocketService.broadcastRoomStateChanged("BOOKING_DELETED");
+            return ResponseEntity.noContent().build();
+        } catch (InvalidBookingException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 
     @PutMapping("/booking/{bookingId}/update")
@@ -135,6 +144,7 @@ public class BookedRoomController {
             
             // Use the update method from service
             String confirmationCode = bookedRoomService.updateBooking(existingBooking);
+            roomStateWebSocketService.broadcastRoomStateChanged("BOOKING_UPDATED");
             return ResponseEntity.ok("Booking updated successfully! Code: " + confirmationCode);
         }catch (ResourceNotFoundException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());

@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface BookedRoomRepository extends ListCrudRepository<BookedRoom, Long> {
     BookedRoom findByBookingConfirmationCode(String bookingConfirmationCode);
+    java.util.Optional<BookedRoom> findByBookingId(Long bookingId);
     List<BookedRoom> findByRoomId(Long roomId);
 
     List<BookedRoom> findByGuestEmail(String email);

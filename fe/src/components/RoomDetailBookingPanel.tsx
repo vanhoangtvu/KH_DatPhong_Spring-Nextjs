@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { compressImageFileToDataUrl } from "@/lib/imageCompression";
 
@@ -15,6 +15,10 @@ type Props = {
   roomName: string;
   areaName: string;
   slots: Slot[];
+  bookingDate?: string;
+  selectedDayLabel?: string;
+  initialSelectedTime?: string;
+  onBooked?: (feedback: string) => void;
 };
 
 type BookingFormState = {
@@ -49,17 +53,51 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
-export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slots }: Props) {
+const formatBookingFeedback = (value: string | null) => {
+  const text = value?.trim() || "";
+  if (!text) {
+    return "Đặt phòng thành công.";
+  }
+
+  const successMatch = text.match(/mã xác nhận\s*:\s*([A-Za-z0-9]+)/i);
+  if (/successfully/i.test(text)) {
+    return successMatch ? `Đặt phòng thành công. Mã xác nhận: ${successMatch[1]}` : "Đặt phòng thành công.";
+  }
+
+  return text;
+};
+
+const isSuccessFeedback = (value: string | null) => {
+  const text = value?.trim().toLowerCase() || "";
+  return text.includes("đặt phòng thành công") || text.includes("mã xác nhận") || text.includes("successfully");
+};
+
+export default function RoomDetailBookingPanel({
+  roomId,
+  roomName,
+  areaName,
+  slots,
+  bookingDate,
+  selectedDayLabel,
+  initialSelectedTime,
+  onBooked,
+}: Props) {
   const router = useRouter();
   const availableSlots = useMemo(
     () => slots.filter((slot) => slot.status !== "Đã Đặt" && slot.status !== "Hết chỗ"),
     [slots],
   );
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(availableSlots[0]?.time ?? "");
+  const [selectedTime, setSelectedTime] = useState(initialSelectedTime ?? availableSlots[0]?.time ?? "");
   const [bookingForm, setBookingForm] = useState<BookingFormState>(EMPTY_BOOKING_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialSelectedTime) {
+      setSelectedTime(initialSelectedTime);
+    }
+  }, [initialSelectedTime]);
 
   const selectedSlot = slots.find((slot) => slot.time === selectedTime);
   const selectedPrice = selectedSlot?.price ?? "";
@@ -94,13 +132,13 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
     try {
       setSubmitting(true);
       setMessage(null);
-      const bookingDate = getTodayDate();
+      const bookingDateValue = bookingDate ?? getTodayDate();
       const response = await fetch(`${API_BASE}/bookings/room/${roomId}/booking`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          checkInDate: bookingDate,
-          checkOutDate: bookingDate,
+          checkInDate: bookingDateValue,
+          checkOutDate: bookingDateValue,
           guestName: bookingForm.guestName,
           guestEmail: bookingForm.guestEmail,
           guestPhone: bookingForm.guestPhone,
@@ -115,7 +153,7 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
           acceptedTerms: bookingForm.acceptedTerms,
           branchName: areaName,
           selectedRoomName: roomName,
-          selectedDayLabel: "Hôm nay",
+          selectedDayLabel: selectedDayLabel ?? "Hôm nay",
           selectedSlotTime: selectedSlot.time,
           selectedSlotPrice: selectedPrice,
         }),
@@ -126,12 +164,11 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
         throw new Error(text || "Đặt phòng thất bại");
       }
 
-      setMessage(text || "Đặt phòng thành công");
+      const feedback = formatBookingFeedback(text);
+      setMessage(feedback);
       setBookingForm(EMPTY_BOOKING_FORM);
-      setTimeout(() => {
-        setShowBookingForm(false);
-        router.refresh();
-      }, 1500);
+      setShowBookingForm(false);
+      onBooked?.(feedback);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Đặt phòng thất bại");
     } finally {
@@ -151,13 +188,13 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
   };
 
   return (
-    <div className="rounded-[28px] bg-white p-4 shadow-[0_10px_30px_rgba(70,98,172,0.06)] sm:p-5">
+    <div className="rounded-[28px] bg-white p-4 shadow-[0_10px_30px_rgba(122,84,47,0.08)] sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-base font-bold text-[#4f67b0] sm:text-lg">Khung giờ có sẵn</div>
-          <p className="mt-1 text-xs text-slate-500 sm:text-sm">Xem các khung giờ còn trống và đặt ngay.</p>
+          <div className="text-base font-bold text-[#8b5e3c] sm:text-lg">Khung giờ có sẵn</div>
+          <p className="mt-1 text-xs text-[#9c7450] sm:text-sm">Xem các khung giờ còn trống và đặt ngay.</p>
         </div>
-        <span className="rounded-full bg-[#eef3ff] px-3 py-1 text-[11px] font-semibold text-[#4361af]">{availableSlots.length} giờ</span>
+        <span className="rounded-full bg-[#f0dfc9] px-3 py-1 text-[11px] font-semibold text-[#7e5331]">{availableSlots.length} giờ</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
@@ -171,7 +208,7 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
               disabled={isDisabled}
               onClick={() => setSelectedTime(slot.time)}
               className={`rounded-[18px] px-3 py-3 text-center shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                isDisabled ? "bg-slate-200 text-slate-500" : isSelected ? "bg-[#4c67b2] text-white" : "bg-[#eef3ff] text-[#4361af]"
+                isDisabled ? "bg-slate-200 text-slate-500" : isSelected ? "bg-[#8b5e3c] text-white" : "bg-[#f7efe4] text-[#8b5e3c]"
               }`}
             >
               <div className="text-sm font-semibold">{slot.time}</div>
@@ -184,8 +221,8 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
 
       {!showBookingForm ? (
         <div className="mt-4 space-y-3">
-          <div className="rounded-[22px] bg-[#f8faff] p-4">
-            <div className="text-sm font-semibold text-[#4f67b0]">Phòng bạn chọn:</div>
+          <div className="rounded-[22px] bg-[#fffaf2] p-4">
+            <div className="text-sm font-semibold text-[#8b5e3c]">Phòng bạn chọn:</div>
             <div className="mt-2 grid gap-2 text-sm text-slate-600">
               <div><span className="font-semibold">Phòng:</span> {roomName}</div>
               <div><span className="font-semibold">Khu vực:</span> {areaName}</div>
@@ -198,16 +235,16 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             type="button"
             disabled={!selectedSlot || selectedSlot.status === "Đã Đặt" || selectedSlot.status === "Hết chỗ"}
             onClick={() => setShowBookingForm(true)}
-            className="w-full rounded-2xl bg-[#425ca7] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-2xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Đặt phòng ngay
           </button>
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="rounded-[22px] bg-[#dfe9ff] p-4">
-            <div className="text-sm font-bold uppercase tracking-wide text-[#324a91]">Thông tin đặt phòng</div>
-            <div className="mt-2 grid gap-2 text-sm text-[#4f67b0]">
+          <div className="rounded-[22px] bg-[#f3e2cd] p-4">
+            <div className="text-sm font-bold uppercase tracking-wide text-[#7e5331]">Thông tin đặt phòng</div>
+            <div className="mt-2 grid gap-2 text-sm text-[#6b4a2d]">
               <div><span className="font-semibold">Phòng bạn chọn:</span> {roomName} - {areaName}</div>
               <div><span className="font-semibold">Giờ nhận phòng:</span> {selectedSlot?.time} ngày {new Date().toLocaleDateString("vi-VN")}</div>
               <div><span className="font-semibold">Tổng tiền:</span> {selectedPrice}</div>
@@ -216,9 +253,9 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
 
           <div className="space-y-3 text-sm">
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Họ tên: *</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Họ tên: *</label>
               <input
-                className="w-full rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#4361af]"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#8b5e3c]"
                 value={bookingForm.guestName}
                 onChange={(e) => setBookingForm((prev) => ({ ...prev, guestName: e.target.value }))}
                 placeholder="Nhập họ tên"
@@ -226,9 +263,9 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </div>
 
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Số điện thoại / Zalo: *</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Số điện thoại / Zalo: *</label>
               <input
-                className="w-full rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#4361af]"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#8b5e3c]"
                 value={bookingForm.guestPhone}
                 onChange={(e) => setBookingForm((prev) => ({ ...prev, guestPhone: e.target.value }))}
                 placeholder="Nhập số điện thoại"
@@ -236,9 +273,9 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </div>
 
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Nhận thông tin đặt phòng qua email: *</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Nhận thông tin đặt phòng qua email: *</label>
               <input
-                className="w-full rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#4361af]"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#8b5e3c]"
                 type="email"
                 value={bookingForm.guestEmail}
                 onChange={(e) => setBookingForm((prev) => ({ ...prev, guestEmail: e.target.value }))}
@@ -256,25 +293,25 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </label>
 
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Số lượng khách:</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Số lượng khách:</label>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setBookingForm((prev) => ({ ...prev, guestCount: Math.max(1, prev.guestCount - 1) }))}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef3ff] text-lg font-bold text-[#4361af]"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f7efe4] text-lg font-bold text-[#8b5e3c]"
                 >
                   -
                 </button>
                 <input
                   type="number"
-                  className="w-20 rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 text-center outline-none ring-0 focus:border-[#4361af]"
+                  className="w-20 rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 text-center outline-none ring-0 focus:border-[#8b5e3c]"
                   value={bookingForm.guestCount}
                   onChange={(e) => setBookingForm((prev) => ({ ...prev, guestCount: Math.max(1, Number(e.target.value)) }))}
                 />
                 <button
                   type="button"
                   onClick={() => setBookingForm((prev) => ({ ...prev, guestCount: prev.guestCount + 1 }))}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef3ff] text-lg font-bold text-[#4361af]"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f7efe4] text-lg font-bold text-[#8b5e3c]"
                 >
                   +
                 </button>
@@ -282,13 +319,13 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </div>
 
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Bạn ghé home bằng phương tiện gì?</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Bạn ghé home bằng phương tiện gì?</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setBookingForm((prev) => ({ ...prev, transportType: "Xe may" }))}
                   className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    bookingForm.transportType === "Xe may" ? "bg-[#4c67b2] text-white" : "bg-[#eef3ff] text-[#4361af]"
+                    bookingForm.transportType === "Xe may" ? "bg-[#8b5e3c] text-white" : "bg-[#f7efe4] text-[#8b5e3c]"
                   }`}
                 >
                   Xe máy
@@ -297,7 +334,7 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
                   type="button"
                   onClick={() => setBookingForm((prev) => ({ ...prev, transportType: "Xe o to" }))}
                   className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    bookingForm.transportType === "Xe o to" ? "bg-[#4c67b2] text-white" : "bg-[#eef3ff] text-[#4361af]"
+                    bookingForm.transportType === "Xe o to" ? "bg-[#8b5e3c] text-white" : "bg-[#f7efe4] text-[#8b5e3c]"
                   }`}
                 >
                   Xe ô tô
@@ -305,8 +342,8 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
               </div>
             </div>
 
-            <div className="rounded-xl border-2 border-dashed border-[#d7e3ff] bg-[#f8faff] p-4">
-              <label className="mb-2 block text-sm font-semibold text-[#4f67b0]">Chứng minh nhân dân: *</label>
+            <div className="rounded-xl border-2 border-dashed border-[#e2c9ab] bg-[#fffaf2] p-4">
+              <label className="mb-2 block text-sm font-semibold text-[#8b5e3c]">Chứng minh nhân dân: *</label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-slate-600">Mặt trước</label>
@@ -329,10 +366,10 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
               </div>
             </div>
 
-            <div className="rounded-xl border-2 border-dashed border-[#d7e3ff] bg-[#f8faff] p-4">
-              <label className="mb-2 block text-sm font-semibold text-[#4f67b0]">Mã giảm giá:</label>
+            <div className="rounded-xl border-2 border-dashed border-[#e2c9ab] bg-[#fffaf2] p-4">
+              <label className="mb-2 block text-sm font-semibold text-[#8b5e3c]">Mã giảm giá:</label>
               <input
-                className="w-full rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#4361af]"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#8b5e3c]"
                 value={bookingForm.discountCode}
                 onChange={(e) => setBookingForm((prev) => ({ ...prev, discountCode: e.target.value }))}
                 placeholder="Nhập mã giảm giá (nếu có)"
@@ -340,9 +377,9 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </div>
 
             <div>
-              <label className="mb-1 block font-semibold text-[#4f67b0]">Ghi chú:</label>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Ghi chú:</label>
               <textarea
-                className="w-full rounded-xl border border-[#d7e3ff] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#4361af]"
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 placeholder:text-slate-400 focus:border-[#8b5e3c]"
                 rows={3}
                 value={bookingForm.note}
                 onChange={(e) => setBookingForm((prev) => ({ ...prev, note: e.target.value }))}
@@ -361,7 +398,11 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
             </label>
           </div>
 
-          {message ? <p className="text-sm text-[#cb2f2f]">{message}</p> : null}
+          {message ? (
+            <p className={`text-sm ${isSuccessFeedback(message) ? "text-emerald-700" : "text-[#cb2f2f]"}`}>
+              {message}
+            </p>
+          ) : null}
 
           <div className="flex gap-2">
             <button
@@ -378,7 +419,7 @@ export default function RoomDetailBookingPanel({ roomId, roomName, areaName, slo
               type="button"
               disabled={submitting || !isBookingFormComplete}
               onClick={() => void handleBook()}
-              className="flex-1 rounded-2xl bg-[#425ca7] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex-1 rounded-2xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Đang gửi..." : "Đặt"}
             </button>
