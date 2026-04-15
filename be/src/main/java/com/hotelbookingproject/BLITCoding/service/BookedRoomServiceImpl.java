@@ -9,9 +9,14 @@ import com.hotelbookingproject.BLITCoding.repository.HomePageConfigRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -86,6 +91,12 @@ public class BookedRoomServiceImpl implements BookedRoomService {
         bookingRequest.setBookingStatus(normalizeBookingStatus(bookingRequest.getBookingStatus()));
         bookingRequest.setDiscountCode(normalizePromoCode(bookingRequest.getDiscountCode()));
 
+        List<String> requestedSlotTimes = parseSelectedSlotTimes(bookingRequest.getSelectedSlotTime());
+        if (requestedSlotTimes.isEmpty()) {
+            throw new InvalidBookingException("Vui lòng chọn ít nhất một khung giờ.");
+        }
+        bookingRequest.setSelectedSlotTime(String.join(", ", requestedSlotTimes));
+
         HomePageConfig promoConfig = homePageConfigRepository.findByConfigKey(CONFIG_KEY).orElse(null);
         bookingRequest.setSelectedSlotPrice(applyDiscountIfEligible(
                 bookingRequest.getSelectedSlotPrice(),
@@ -94,6 +105,9 @@ public class BookedRoomServiceImpl implements BookedRoomService {
         ));
         
         // Validate dates
+        if (bookingRequest.getCheckInDate() == null || bookingRequest.getCheckOutDate() == null) {
+            throw new InvalidBookingException("Vui lòng chọn đầy đủ ngày nhận và trả phòng");
+        }
         if(bookingRequest.getCheckOutDate().isBefore(bookingRequest.getCheckInDate())){
             throw new InvalidBookingException("Ngày check-out phải sau ngày check-in");
         }
@@ -102,19 +116,16 @@ public class BookedRoomServiceImpl implements BookedRoomService {
         Room room = roomService.getRoomById(roomId)
                 .orElseThrow(() -> new InvalidBookingException("Phòng không tồn tại"));
         
-        // CRITICAL: Check if the specific time slot is available for the specific date
-        boolean isAvailable = isTimeSlotAvailable(
-                room.getId(),
-                bookingRequest.getCheckInDate(),
-            bookingRequest.getSelectedSlotTime(),
-            null
-        );
-        
-        if (!isAvailable) {
-            throw new InvalidBookingException(
-                    "Xin lỗi, khung giờ " + bookingRequest.getSelectedSlotTime() + 
-                    " ngày " + bookingRequest.getCheckInDate() + " đã được đặt. Vui lòng chọn khung giờ khác."
-            );
+        for (LocalDate date = bookingRequest.getCheckInDate(); !date.isAfter(bookingRequest.getCheckOutDate()); date = date.plusDays(1)) {
+            for (String slotTime : requestedSlotTimes) {
+                boolean isAvailable = isTimeSlotAvailable(room.getId(), date, slotTime, null);
+                if (!isAvailable) {
+                    throw new InvalidBookingException(
+                            "Xin lỗi, khung giờ " + slotTime +
+                                    " ngày " + date + " đã được đặt. Vui lòng chọn khung giờ khác."
+                    );
+                }
+            }
         }
         
         // Save booking
@@ -149,12 +160,9 @@ public class BookedRoomServiceImpl implements BookedRoomService {
         return existingBookings.stream()
                 .filter(this::isActiveBooking)
                 .filter(booking -> excludedBookingId == null || !excludedBookingId.equals(booking.getBookingId()))
-                .noneMatch(booking -> 
-                    booking.getCheckInDate() != null &&
-                    booking.getCheckInDate().equals(date) &&
-                    booking.getSelectedSlotTime() != null &&
-                    booking.getSelectedSlotTime().trim().equalsIgnoreCase(timeSlot.trim())
-                );
+                .noneMatch(booking -> isBookingActiveOnDate(booking, date)
+                        && parseSelectedSlotTimes(booking.getSelectedSlotTime()).stream()
+                        .anyMatch(slot -> slot.equalsIgnoreCase(timeSlot.trim())));
     }
 
     @Override
@@ -165,18 +173,32 @@ public class BookedRoomServiceImpl implements BookedRoomService {
 
         booking.setBookingStatus(normalizeBookingStatus(booking.getBookingStatus()));
 
+        List<String> requestedSlotTimes = parseSelectedSlotTimes(booking.getSelectedSlotTime());
+        if (requestedSlotTimes.isEmpty()) {
+            throw new InvalidBookingException("Vui lòng chọn ít nhất một khung giờ.");
+        }
+        booking.setSelectedSlotTime(String.join(", ", requestedSlotTimes));
+
+        if (booking.getCheckInDate() == null || booking.getCheckOutDate() == null) {
+            throw new InvalidBookingException("Vui lòng chọn đầy đủ ngày nhận và trả phòng");
+        }
+
         if (booking.getRoom() != null && booking.getRoom().getId() != null && isActiveBooking(booking)) {
-            boolean isAvailable = isTimeSlotAvailable(
-                    booking.getRoom().getId(),
-                    booking.getCheckInDate(),
-                    booking.getSelectedSlotTime(),
-                    booking.getBookingId()
-            );
-            if (!isAvailable) {
-                throw new InvalidBookingException(
-                        "Xin lỗi, khung giờ " + booking.getSelectedSlotTime() +
-                                " ngày " + booking.getCheckInDate() + " đã được đặt. Vui lòng chọn khung giờ khác."
-                );
+            for (LocalDate date = booking.getCheckInDate(); !date.isAfter(booking.getCheckOutDate()); date = date.plusDays(1)) {
+                for (String slotTime : requestedSlotTimes) {
+                    boolean isAvailable = isTimeSlotAvailable(
+                            booking.getRoom().getId(),
+                            date,
+                            slotTime,
+                            booking.getBookingId()
+                    );
+                    if (!isAvailable) {
+                        throw new InvalidBookingException(
+                                "Xin lỗi, khung giờ " + slotTime +
+                                        " ngày " + date + " đã được đặt. Vui lòng chọn khung giờ khác."
+                        );
+                    }
+                }
             }
         }
 
@@ -220,6 +242,27 @@ public class BookedRoomServiceImpl implements BookedRoomService {
         }
         String normalizedStatus = normalizeBookingStatus(booking.getBookingStatus()).toLowerCase(Locale.ROOT);
         return !INACTIVE_BOOKING_STATUS_KEYS.contains(normalizedStatus);
+    }
+
+    private boolean isBookingActiveOnDate(BookedRoom booking, LocalDate date) {
+        if (booking == null || date == null || booking.getCheckInDate() == null) {
+            return false;
+        }
+
+        LocalDate checkOutDate = booking.getCheckOutDate() == null ? booking.getCheckInDate() : booking.getCheckOutDate();
+        return !date.isBefore(booking.getCheckInDate()) && !date.isAfter(checkOutDate);
+    }
+
+    private List<String> parseSelectedSlotTimes(String selectedSlotTime) {
+        if (selectedSlotTime == null || selectedSlotTime.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(selectedSlotTime.split("[\\,\\|\\n;]"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private String normalizeBookingStatus(String bookingStatus) {

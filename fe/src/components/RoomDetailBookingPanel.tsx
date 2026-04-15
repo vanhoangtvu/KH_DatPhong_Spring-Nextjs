@@ -51,20 +51,94 @@ const EMPTY_BOOKING_FORM: BookingFormState = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
+const getTodayDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
-const formatBookingFeedback = (value: string | null) => {
+const formatLocalDateString = (dateValue: string) => {
+  if (!dateValue || typeof dateValue !== "string") return "";
+  const [yearText, monthText, dayText] = dateValue.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return dateValue;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString("vi-VN");
+};
+
+const parseLocalDateString = (dateValue: string) => {
+  if (!dateValue) return null;
+  const [yearText, monthText, dayText] = dateValue.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const addDays = (dateValue: string, days: number) => {
+  const parsed = parseLocalDateString(dateValue);
+  if (!parsed) return dateValue;
+
+  const nextDate = new Date(parsed);
+  nextDate.setDate(parsed.getDate() + days);
+  return `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${String(nextDate.getDate()).padStart(2, "0")}`;
+};
+
+const countDaysInclusive = (startDate: string, endDate: string) => {
+  const start = parseLocalDateString(startDate);
+  const end = parseLocalDateString(endDate);
+  if (!start || !end || end.getTime() < start.getTime()) {
+    return 0;
+  }
+
+  const millisPerDay = 24 * 60 * 60 * 1000;
+  return Math.floor((end.getTime() - start.getTime()) / millisPerDay) + 1;
+};
+
+const parsePriceToVnd = (value: string) => {
+  if (!value) return 0;
+  const normalized = value.trim().toLowerCase().replace(/đ|\s/g, "");
+  const isKUnit = normalized.endsWith("k");
+  const digits = normalized.replace(/[^0-9]/g, "");
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return Number.isFinite(amount) ? (isKUnit ? amount * 1000 : amount) : 0;
+};
+
+const formatVnd = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "0đ";
+  }
+
+  return `${amount.toLocaleString("vi-VN")}đ`;
+};
+
+const buildSelectedDayLabel = (startDate: string, endDate: string) => {
+  if (!startDate) return "Hôm nay";
+  if (!endDate || startDate === endDate) return formatLocalDateString(startDate);
+  return `${formatLocalDateString(startDate)} - ${formatLocalDateString(endDate)}`;
+};
+
+const extractConfirmationCode = (value: string | null) => {
   const text = value?.trim() || "";
   if (!text) {
-    return "Đặt phòng thành công.";
+    return "";
   }
 
-  const successMatch = text.match(/mã xác nhận\s*:\s*([A-Za-z0-9]+)/i);
-  if (/successfully/i.test(text)) {
-    return successMatch ? `Đặt phòng thành công. Mã xác nhận: ${successMatch[1]}` : "Đặt phòng thành công.";
-  }
-
-  return text;
+  const matches = text.match(/[A-Za-z0-9]{6,}/g);
+  return matches?.[matches.length - 1] ?? "";
 };
 
 const isSuccessFeedback = (value: string | null) => {
@@ -88,21 +162,42 @@ export default function RoomDetailBookingPanel({
     [slots],
   );
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(initialSelectedTime ?? availableSlots[0]?.time ?? "");
+  const [selectedTimes, setSelectedTimes] = useState<string[]>(initialSelectedTime ? [initialSelectedTime] : availableSlots[0]?.time ? [availableSlots[0].time] : []);
+  const [bookingEndDate, setBookingEndDate] = useState(bookingDate ?? getTodayDate());
   const [bookingForm, setBookingForm] = useState<BookingFormState>(EMPTY_BOOKING_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const bookingStartDate = bookingDate ?? getTodayDate();
+
   useEffect(() => {
     if (initialSelectedTime) {
-      setSelectedTime(initialSelectedTime);
+      setSelectedTimes((prev) => (prev.includes(initialSelectedTime) ? prev : [initialSelectedTime]));
     }
   }, [initialSelectedTime]);
 
-  const selectedSlot = slots.find((slot) => slot.time === selectedTime);
-  const selectedPrice = selectedSlot?.price ?? "";
+  useEffect(() => {
+    if (!bookingEndDate) {
+      setBookingEndDate(bookingStartDate);
+      return;
+    }
+
+    const start = parseLocalDateString(bookingStartDate);
+    const end = parseLocalDateString(bookingEndDate);
+    if (start && end && end.getTime() < start.getTime()) {
+      setBookingEndDate(bookingStartDate);
+    }
+  }, [bookingStartDate, bookingEndDate]);
+
+  const selectedSlotItems = useMemo(
+    () => slots.filter((slot) => selectedTimes.includes(slot.time)),
+    [slots, selectedTimes],
+  );
+  const selectedTimesLabel = selectedTimes.length > 0 ? selectedTimes.join(", ") : "Chưa chọn";
+  const selectedDaysCount = countDaysInclusive(bookingStartDate, bookingEndDate) || 1;
+  const selectedPrice = formatVnd(selectedSlotItems.reduce((sum, slot) => sum + parsePriceToVnd(slot.price), 0) * selectedDaysCount);
   const isBookingFormComplete = Boolean(
-    selectedSlot &&
+    selectedSlotItems.length > 0 &&
       bookingForm.guestName.trim() &&
       bookingForm.guestPhone.trim() &&
       bookingForm.guestEmail.trim() &&
@@ -112,12 +207,16 @@ export default function RoomDetailBookingPanel({
   );
 
   const handleBook = async () => {
-    if (!selectedSlot) {
-      setMessage("Vui lòng chọn khung giờ.");
+    if (selectedSlotItems.length === 0) {
+      setMessage("Vui lòng chọn ít nhất một khung giờ.");
       return;
     }
-    if (selectedSlot.status === "Đã Đặt" || selectedSlot.status === "Hết chỗ") {
-      setMessage("Khung giờ này đã được đặt.");
+    if (!parseLocalDateString(bookingStartDate) || !parseLocalDateString(bookingEndDate)) {
+      setMessage("Vui lòng chọn ngày hợp lệ.");
+      return;
+    }
+    if (parseLocalDateString(bookingEndDate)!.getTime() < parseLocalDateString(bookingStartDate)!.getTime()) {
+      setMessage("Ngày trả phòng phải sau hoặc bằng ngày nhận phòng.");
       return;
     }
     if (!bookingForm.guestName.trim() || !bookingForm.guestPhone.trim() || !bookingForm.guestEmail.trim()) {
@@ -132,13 +231,12 @@ export default function RoomDetailBookingPanel({
     try {
       setSubmitting(true);
       setMessage(null);
-      const bookingDateValue = bookingDate ?? getTodayDate();
       const response = await fetch(`${API_BASE}/bookings/room/${roomId}/booking`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          checkInDate: bookingDateValue,
-          checkOutDate: bookingDateValue,
+          checkInDate: bookingStartDate,
+          checkOutDate: bookingEndDate,
           guestName: bookingForm.guestName,
           guestEmail: bookingForm.guestEmail,
           guestPhone: bookingForm.guestPhone,
@@ -153,8 +251,8 @@ export default function RoomDetailBookingPanel({
           acceptedTerms: bookingForm.acceptedTerms,
           branchName: areaName,
           selectedRoomName: roomName,
-          selectedDayLabel: selectedDayLabel ?? "Hôm nay",
-          selectedSlotTime: selectedSlot.time,
+          selectedDayLabel: buildSelectedDayLabel(bookingStartDate, bookingEndDate),
+          selectedSlotTime: selectedTimesLabel,
           selectedSlotPrice: selectedPrice,
         }),
       });
@@ -164,9 +262,14 @@ export default function RoomDetailBookingPanel({
         throw new Error(text || "Đặt phòng thất bại");
       }
 
-      const feedback = formatBookingFeedback(text);
+      const confirmationCode = extractConfirmationCode(text);
+      const feedback = confirmationCode
+        ? `Đặt phòng thành công. Mã xác nhận: ${confirmationCode}`
+        : "Đặt phòng thành công.";
       setMessage(feedback);
       setBookingForm(EMPTY_BOOKING_FORM);
+      setSelectedTimes([]);
+      setBookingEndDate(bookingStartDate);
       setShowBookingForm(false);
       onBooked?.(feedback);
     } catch (error) {
@@ -200,13 +303,13 @@ export default function RoomDetailBookingPanel({
       <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
         {slots.map((slot) => {
           const isDisabled = slot.status === "Đã Đặt" || slot.status === "Hết chỗ";
-          const isSelected = selectedTime === slot.time;
+          const isSelected = selectedTimes.includes(slot.time);
           return (
             <button
               key={slot.time}
               type="button"
               disabled={isDisabled}
-              onClick={() => setSelectedTime(slot.time)}
+              onClick={() => setSelectedTimes((prev) => (prev.includes(slot.time) ? prev.filter((time) => time !== slot.time) : [...prev, slot.time]))}
               className={`rounded-[18px] px-3 py-3 text-center shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
                 isDisabled ? "bg-slate-200 text-slate-500" : isSelected ? "bg-[#8b5e3c] text-white" : "bg-[#f7efe4] text-[#8b5e3c]"
               }`}
@@ -226,14 +329,17 @@ export default function RoomDetailBookingPanel({
             <div className="mt-2 grid gap-2 text-sm text-slate-600">
               <div><span className="font-semibold">Phòng:</span> {roomName}</div>
               <div><span className="font-semibold">Khu vực:</span> {areaName}</div>
-              <div><span className="font-semibold">Giờ nhận phòng:</span> {selectedSlot?.time || "Chưa chọn"}</div>
+              <div><span className="font-semibold">Ngày nhận:</span> {formatLocalDateString(bookingStartDate)}</div>
+              <div><span className="font-semibold">Ngày trả:</span> {formatLocalDateString(bookingEndDate)}</div>
+              <div><span className="font-semibold">Khung giờ:</span> {selectedTimesLabel}</div>
+              <div><span className="font-semibold">Số ngày:</span> {selectedDaysCount}</div>
               <div><span className="font-semibold">Tổng tiền:</span> {selectedPrice || "-"}</div>
             </div>
           </div>
 
           <button
             type="button"
-            disabled={!selectedSlot || selectedSlot.status === "Đã Đặt" || selectedSlot.status === "Hết chỗ"}
+            disabled={selectedSlotItems.length === 0}
             onClick={() => setShowBookingForm(true)}
             className="w-full rounded-2xl bg-[#8b5e3c] px-4 py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -246,8 +352,33 @@ export default function RoomDetailBookingPanel({
             <div className="text-sm font-bold uppercase tracking-wide text-[#7e5331]">Thông tin đặt phòng</div>
             <div className="mt-2 grid gap-2 text-sm text-[#6b4a2d]">
               <div><span className="font-semibold">Phòng bạn chọn:</span> {roomName} - {areaName}</div>
-              <div><span className="font-semibold">Giờ nhận phòng:</span> {selectedSlot?.time} ngày {new Date().toLocaleDateString("vi-VN")}</div>
+              <div><span className="font-semibold">Ngày nhận:</span> {formatLocalDateString(bookingStartDate)}</div>
+              <div><span className="font-semibold">Ngày trả:</span> {formatLocalDateString(bookingEndDate)}</div>
+              <div><span className="font-semibold">Khung giờ:</span> {selectedTimesLabel}</div>
+              <div><span className="font-semibold">Số ngày:</span> {selectedDaysCount}</div>
               <div><span className="font-semibold">Tổng tiền:</span> {selectedPrice}</div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Ngày nhận phòng *</label>
+              <input
+                type="date"
+                value={bookingStartDate}
+                disabled
+                className="w-full rounded-xl border border-[#e2c9ab] bg-slate-100 px-3 py-2 outline-none ring-0"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block font-semibold text-[#8b5e3c]">Ngày trả phòng *</label>
+              <input
+                type="date"
+                min={bookingStartDate}
+                value={bookingEndDate}
+                onChange={(e) => setBookingEndDate(e.target.value)}
+                className="w-full rounded-xl border border-[#e2c9ab] bg-white px-3 py-2 outline-none ring-0 focus:border-[#8b5e3c]"
+              />
             </div>
           </div>
 

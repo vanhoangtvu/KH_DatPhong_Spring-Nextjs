@@ -15,6 +15,7 @@ public record RoomDetailResponse(
         String videoUrl,
         List<String> features,
         List<RoomDetailTimeSlot> slots,
+        List<String> bookedSlotTimes,
         boolean booked
 ) {
     public record RoomDetailTimeSlot(String time, String price, String status) {}

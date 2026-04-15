@@ -1,25 +1,26 @@
 package com.hotelbookingproject.BLITCoding.controller;
 
+import com.hotelbookingproject.BLITCoding.model.BookedRoom;
 import com.hotelbookingproject.BLITCoding.model.Room;
 import com.hotelbookingproject.BLITCoding.repository.RoomRepository;
 import com.hotelbookingproject.BLITCoding.response.HomePageResponse;
 import com.hotelbookingproject.BLITCoding.response.RoomDetailResponse;
-import com.hotelbookingproject.BLITCoding.service.HomePageConfigService;
 import com.hotelbookingproject.BLITCoding.service.BookedRoomService;
+import com.hotelbookingproject.BLITCoding.service.HomePageConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Locale;
 
 @RestController
 @RequiredArgsConstructor
@@ -49,38 +50,17 @@ public class HomePageController {
             @RequestParam(required = false) String date) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new com.hotelbookingproject.BLITCoding.exception.ResourceNotFoundException("Room not found with id " + roomId));
-        
-        // Get bookings filtered by date if provided
+
         Set<String> bookedTimes;
-        if (date != null && !date.isBlank()) {
-            bookedTimes = bookedRoomService.getActiveBookingsByRoomId(roomId).stream()
-                .filter(booking -> {
-                    // Filter by checkInDate matching the provided date
-                    if (booking.getCheckInDate() == null) return false;
-                    String bookingDate = booking.getCheckInDate().toString(); // Format: yyyy-MM-dd
-                    System.out.println("Comparing booking date: " + bookingDate + " with requested date: " + date);
-                    return bookingDate.equals(date);
-                })
-                .map(booking -> {
-                    String slotTime = normalizeSlotKey(booking.getSelectedSlotTime());
-                    System.out.println("Booked slot time: " + slotTime + " for date: " + date);
-                    return slotTime;
-                })
+        LocalDate targetDate = date != null && !date.isBlank() ? LocalDate.parse(date) : LocalDate.now();
+        bookedTimes = bookedRoomService.getActiveBookingsByRoomId(roomId).stream()
+                .filter(booking -> isBookingActiveOnDate(booking, targetDate))
+                .flatMap(booking -> parseSelectedSlotTimes(booking.getSelectedSlotTime()).stream())
+                .map(this::normalizeSlotKey)
                 .filter(value -> !value.isBlank())
                 .collect(Collectors.toSet());
-            System.out.println("Total booked times for date " + date + ": " + bookedTimes.size());
-        } else {
-            // If no date provided, get today's bookings
-            String today = java.time.LocalDate.now().toString();
-            bookedTimes = bookedRoomService.getActiveBookingsByRoomId(roomId).stream()
-                .filter(booking -> {
-                    if (booking.getCheckInDate() == null) return false;
-                    return booking.getCheckInDate().toString().equals(today);
-                })
-                .map(booking -> normalizeSlotKey(booking.getSelectedSlotTime()))
-                .filter(value -> !value.isBlank())
-                .collect(Collectors.toSet());
-        }
+
+        List<String> bookedSlotTimes = buildBookedSlotTimes(room, bookedTimes);
 
         return ResponseEntity.ok(new RoomDetailResponse(
                 room.getId(),
@@ -94,7 +74,8 @@ public class HomePageController {
                 room.getVideoUrl(),
                 splitCsv(room.getFeaturesCsv()),
                 buildSlots(room, bookedTimes),
-                !bookedRoomService.getActiveBookingsByRoomId(room.getId()).isEmpty()
+                bookedSlotTimes,
+                !bookedTimes.isEmpty()
         ));
     }
 
@@ -102,6 +83,7 @@ public class HomePageController {
         if (csv == null || csv.isBlank()) {
             return List.of();
         }
+
         return Arrays.stream(csv.split("\\|"))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
@@ -122,10 +104,39 @@ public class HomePageController {
                 .toList();
     }
 
+    private List<String> buildBookedSlotTimes(Room room, Set<String> bookedTimes) {
+        List<String> times = splitCsv(room.getSlotTimesCsv());
+        return times.stream()
+                .filter(time -> bookedTimes.contains(normalizeSlotKey(time)))
+                .toList();
+    }
+
+    private List<String> parseSelectedSlotTimes(String selectedSlotTime) {
+        if (selectedSlotTime == null || selectedSlotTime.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(selectedSlotTime.split("[\\,\\|\\n;]"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private boolean isBookingActiveOnDate(BookedRoom booking, LocalDate date) {
+        if (booking == null || date == null || booking.getCheckInDate() == null) {
+            return false;
+        }
+
+        LocalDate checkOutDate = booking.getCheckOutDate() == null ? booking.getCheckInDate() : booking.getCheckOutDate();
+        return !date.isBefore(booking.getCheckInDate()) && !date.isAfter(checkOutDate);
+    }
+
     private String normalizeSlotKey(String value) {
         if (value == null) {
             return "";
         }
+
         return value.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
     }
 }

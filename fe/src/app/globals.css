@@ -11,6 +11,7 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -86,6 +87,12 @@ div {
       radial-gradient(circle at top, rgba(217, 182, 137, 0.28), transparent 28%),
       radial-gradient(circle at 80% 20%, rgba(193, 149, 102, 0.18), transparent 22%),
       linear-gradient(180deg, #f7f0e2 0%, #f1e2c8 48%, #ead5b5 100%);
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   .glass {

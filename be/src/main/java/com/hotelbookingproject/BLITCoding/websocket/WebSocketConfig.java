@@ -12,10 +12,13 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final RoomStateWebSocketHandler roomStateWebSocketHandler;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(roomStateWebSocketHandler, "/ws/room-state")
+                .setAllowedOriginPatterns("*");
+        registry.addHandler(chatWebSocketHandler, "/ws/chat")
                 .setAllowedOriginPatterns("*");
     }
 }

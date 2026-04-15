@@ -255,14 +255,13 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         for (Room room : rooms) {
                 Set<String> bookedTimes = bookedRoomService.getActiveBookingsByRoomId(room.getId()).stream()
                     .filter(booking -> {
-                        // Filter by actual checkInDate, not just day label
-                        if (effectiveDate != null && booking.getCheckInDate() != null) {
-                            return booking.getCheckInDate().equals(effectiveDate);
+                        if (effectiveDate != null) {
+                            return isBookingActiveOnDate(booking, effectiveDate);
                         }
-                        // Fallback to day label matching if date is not available
                         return matchesDayLabel(dayLabel, booking.getSelectedDayLabel());
                     })
-                    .map(booking -> normalizeSlotKey(booking.getSelectedSlotTime()))
+                    .flatMap(booking -> parseSelectedSlotTimes(booking.getSelectedSlotTime()).stream())
+                    .map(this::normalizeSlotKey)
                     .filter(value -> !value.isBlank())
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             result.put(room.getId(), bookedTimes);
@@ -317,6 +316,27 @@ public class HomePageConfigServiceImpl implements HomePageConfigService {
         }
         return bookingDayLabel != null && !bookingDayLabel.isBlank()
                 && bookingDayLabel.trim().equalsIgnoreCase(requestedDayLabel.trim());
+    }
+
+    private List<String> parseSelectedSlotTimes(String selectedSlotTime) {
+        if (selectedSlotTime == null || selectedSlotTime.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(selectedSlotTime.split("[\\,\\|\\n;]"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private boolean isBookingActiveOnDate(com.hotelbookingproject.BLITCoding.model.BookedRoom booking, LocalDate date) {
+        if (booking == null || date == null || booking.getCheckInDate() == null) {
+            return false;
+        }
+
+        LocalDate checkOutDate = booking.getCheckOutDate() == null ? booking.getCheckInDate() : booking.getCheckOutDate();
+        return !date.isBefore(booking.getCheckInDate()) && !date.isAfter(checkOutDate);
     }
 
     private List<AreaItem> buildAreas(List<Room> rooms) {

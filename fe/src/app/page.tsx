@@ -102,6 +102,31 @@ const EMPTY_BOOKING_FORM: BookingFormState = {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 console.log('API_BASE:', API_BASE);
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseLocalDateString = (dateValue: string) => {
+  if (!dateValue || typeof dateValue !== "string") {
+    return null;
+  }
+
+  const [yearText, monthText, dayText] = dateValue.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const getRoomDetailPath = (room: RoomItem, date?: string) => {
   if (!date) {
     return `/room/${room.roomId}`;
@@ -109,15 +134,13 @@ const getRoomDetailPath = (room: RoomItem, date?: string) => {
 
   return `/room/${room.roomId}?date=${encodeURIComponent(date)}`;
 };
-const getSharedSelectedDateKey = () => "fiin-home-selected-date";
-
 const getDayLabelForDate = (dateValue: string) => {
   if (!dateValue) {
     return "";
   }
 
-  const targetDate = new Date(`${dateValue}T00:00:00`);
-  if (Number.isNaN(targetDate.getTime())) {
+  const targetDate = parseLocalDateString(dateValue);
+  if (!targetDate) {
     return "";
   }
 
@@ -129,7 +152,7 @@ const getDayLabelForDate = (dateValue: string) => {
     candidate.setHours(0, 0, 0, 0);
     candidate.setDate(today.getDate() + offset);
 
-    if (candidate.toISOString().slice(0, 10) === dateValue) {
+    if (getLocalDateString(candidate) === dateValue) {
       if (offset === 0) {
         return "Hôm nay";
       }
@@ -145,8 +168,8 @@ const formatDateForDisplay = (dateValue: string) => {
     return "";
   }
 
-  const parsed = new Date(`${dateValue}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseLocalDateString(dateValue);
+  if (!parsed) {
     return "";
   }
 
@@ -160,7 +183,7 @@ const getDateForDayLabel = (dayLabel: string) => {
 
   const today = new Date();
   if (dayLabel.toLowerCase().includes("hôm nay")) {
-    return today.toISOString().slice(0, 10);
+    return getLocalDateString(today);
   }
 
   const dayNames = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
@@ -174,7 +197,7 @@ const getDateForDayLabel = (dayLabel: string) => {
     candidate.setHours(0, 0, 0, 0);
     candidate.setDate(today.getDate() + offset);
     if (candidate.getDay() === targetIndex) {
-      return candidate.toISOString().slice(0, 10);
+      return getLocalDateString(candidate);
     }
   }
 
@@ -239,7 +262,7 @@ export default function HomePage() {
   const showcaseTouchStartY = useRef<number | null>(null);
   const showcaseSwipeHandled = useRef(false);
   const dayStripRef = useRef<HTMLDivElement | null>(null);
-  const todayDate = new Date().toISOString().slice(0, 10);
+  const todayDate = getLocalDateString();
   const [pageData, setPageData] = useState<HomePageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,8 +278,7 @@ export default function HomePage() {
       return queryDayLabel || "Hôm nay";
     }
 
-    const storedDate = window.sessionStorage.getItem(getSharedSelectedDateKey());
-    return storedDate ? getDayLabelForDate(storedDate) : "Hôm nay";
+    return "Hôm nay";
   });
   const [selectedDate, setSelectedDate] = useState(() => {
     if (typeof window === "undefined") {
@@ -268,7 +290,7 @@ export default function HomePage() {
       return queryDate;
     }
 
-    return window.sessionStorage.getItem(getSharedSelectedDateKey()) ?? todayDate;
+    return todayDate;
   });
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -277,6 +299,15 @@ export default function HomePage() {
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
   const [bookingSuccessMessage, setBookingSuccessMessage] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  const handleDaySelect = (day: string) => {
+    setSelectedDay(day);
+    const nextDate = getDateForDayLabel(day);
+    if (nextDate) {
+      setSelectedDate(nextDate);
+    }
+  };
 
   const loadHomePage = async (dayLabel?: string, date?: string) => {
     const shouldShowLoading = !pageData;
@@ -313,15 +344,14 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (!selectedDay) return;
-    const nextDate = getDateForDayLabel(selectedDay) || selectedDate;
-    if (typeof window !== "undefined" && nextDate) {
-      window.sessionStorage.setItem(getSharedSelectedDateKey(), nextDate);
-    }
-    if (nextDate) {
-      setSelectedDate(nextDate);
-    }
-  }, [selectedDay]);
+    const queryDate = new URLSearchParams(window.location.search).get("date");
+    const nextDate = queryDate || todayDate;
+    const nextDayLabel = getDayLabelForDate(nextDate) || "Hôm nay";
+
+    setSelectedDate(nextDate);
+    setSelectedDay(nextDayLabel);
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !selectedDate) return;
@@ -331,9 +361,9 @@ export default function HomePage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!hasMounted || !selectedDate) return;
     void loadHomePage(undefined, selectedDate);
-  }, [selectedDate, refreshTick]);
+  }, [hasMounted, selectedDate, refreshTick]);
 
   useRoomStateSocket(() => {
     setRefreshTick((value) => value + 1);
@@ -466,16 +496,6 @@ export default function HomePage() {
     showcaseSwipeHandled.current = false;
   };
 
-  const parseDayToDate = (dayLabel: string) => {
-    const now = new Date();
-    if (dayLabel.toLowerCase().includes("hôm nay")) {
-      return now.toISOString().slice(0, 10);
-    }
-    const plusOne = new Date(now);
-    plusOne.setDate(now.getDate() + 1);
-    return plusOne.toISOString().slice(0, 10);
-  };
-
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -483,6 +503,16 @@ export default function HomePage() {
       reader.onerror = () => reject(new Error("Không đọc được file ảnh"));
       reader.readAsDataURL(file);
     });
+
+  const extractConfirmationCode = (value: string | null) => {
+    const text = value?.trim() || "";
+    if (!text) {
+      return "";
+    }
+
+    const matches = text.match(/[A-Za-z0-9]{6,}/g);
+    return matches?.[matches.length - 1] ?? "";
+  };
 
   const footerContactLines = [pageData?.hotline, pageData?.bookingNotice || "Hỗ trợ đặt phòng 24/7"].filter(
     (line) => line && line.trim().length > 0
@@ -510,7 +540,7 @@ export default function HomePage() {
       setSubmittingBooking(true);
       setBookingMessage(null);
 
-      const bookingDate = parseDayToDate(selectedDay);
+      const bookingDate = selectedDate;
       const payload = {
         checkInDate: bookingDate,
         checkOutDate: bookingDate,
@@ -544,7 +574,8 @@ export default function HomePage() {
         throw new Error(text || "Đặt phòng thất bại");
       }
 
-      setBookingMessage(text || "Đặt phòng thành công");
+      const confirmationCode = extractConfirmationCode(text);
+      setBookingMessage(confirmationCode ? `Đặt phòng thành công. Mã xác nhận: ${confirmationCode}` : "Đặt phòng thành công.");
       setSelectedSlots({});
       setBookingForm(EMPTY_BOOKING_FORM);
       setTimeout(() => setShowBookingForm(false), 1200);
@@ -820,7 +851,7 @@ export default function HomePage() {
                 className="text-2xl font-black text-[#8b5e3c] transition-transform active:scale-90"
                 onClick={() => {
                   const idx = (pageData.days.indexOf(selectedDay) - 1 + pageData.days.length) % pageData.days.length;
-                  setSelectedDay(pageData.days[idx]);
+                  handleDaySelect(pageData.days[idx]);
                 }}
               >
                 ‹
@@ -828,7 +859,7 @@ export default function HomePage() {
               {pageData.days.map((day) => (
                 <button
                   key={day}
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => handleDaySelect(day)}
                   className={`min-w-[96px] rounded-[14px] border px-3 py-3 text-sm font-semibold transition-all ${
                     selectedDay === day
                       ? "border-[#8b5e3c] bg-[#f0dfc9] text-[#7e5331]"
@@ -842,7 +873,7 @@ export default function HomePage() {
                 className="text-2xl font-black text-[#8b5e3c] transition-transform active:scale-90"
                 onClick={() => {
                   const idx = (pageData.days.indexOf(selectedDay) + 1) % pageData.days.length;
-                  setSelectedDay(pageData.days[idx]);
+                  handleDaySelect(pageData.days[idx]);
                 }}
               >
                 ›
@@ -867,7 +898,7 @@ export default function HomePage() {
                     {pageData.days.map((day) => (
                       <button
                         key={day}
-                        onClick={() => setSelectedDay(day)}
+                        onClick={() => handleDaySelect(day)}
                         className={`min-w-[78px] flex-shrink-0 rounded-[14px] border px-3 py-3 text-xs font-semibold transition-all ${
                           selectedDay === day
                             ? "border-[#8b5e3c] bg-[#f0dfc9] text-[#7e5331] shadow-sm"
@@ -1110,7 +1141,7 @@ export default function HomePage() {
               roomName={selectedBookingItem.room.name}
               areaName={selectedArea}
               slots={selectedBookingItem.room.slots}
-              bookingDate={parseDayToDate(selectedDay)}
+              bookingDate={selectedDate}
               selectedDayLabel={selectedDay}
               initialSelectedTime={selectedBookingItem.slot.time}
               onBooked={(feedback) => {

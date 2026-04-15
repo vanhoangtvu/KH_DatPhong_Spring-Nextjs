@@ -18,6 +18,7 @@ type RoomDetailResponse = {
   videoUrl: string;
   features: string[];
   slots: { time: string; price: string; status: string }[];
+  bookedSlotTimes: string[];
   booked: boolean;
 };
 
@@ -30,7 +31,13 @@ type HomePageResponse = {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 const getSelectedDateStorageKey = (roomId: string) => `fiin-home-room-date-${roomId}`;
-const getSharedSelectedDateKey = () => "fiin-home-selected-date";
+
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function RoomDetailPage() {
   const params = useParams();
@@ -43,13 +50,26 @@ export default function RoomDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => {
     if (typeof window === "undefined") {
-      return new Date().toISOString().split('T')[0];
+      return getLocalDateString();
     }
 
-    return new URLSearchParams(window.location.search).get("date") ?? new Date().toISOString().split('T')[0];
+    return new URLSearchParams(window.location.search).get("date") ?? getLocalDateString();
   });
   const [isHydrated, setIsHydrated] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const queryDate = new URLSearchParams(window.location.search).get("date");
+    if (queryDate) {
+      setSelectedDate(queryDate);
+    } else {
+      setSelectedDate(getLocalDateString());
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !roomIdParam) {
@@ -66,7 +86,6 @@ export default function RoomDetailPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && roomIdParam && isHydrated) {
       window.sessionStorage.setItem(getSelectedDateStorageKey(roomIdParam), selectedDate);
-      window.sessionStorage.setItem(getSharedSelectedDateKey(), selectedDate);
     }
   }, [roomIdParam, selectedDate, isHydrated]);
 

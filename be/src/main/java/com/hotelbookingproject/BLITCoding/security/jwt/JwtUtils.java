@@ -15,8 +15,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 
 
@@ -82,6 +84,35 @@ public class JwtUtils {
             logger.error("JWT token could not be parsed");
         }
         return false;
+    }
+
+    public List<String> getRolesFromToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody();
+            Object rolesClaim = claims.get("roles");
+            if (rolesClaim instanceof List<?> rolesList) {
+                return rolesList.stream().map(String::valueOf).toList();
+            }
+        } catch (Exception e) {
+            logger.warn("Cannot read roles from JWT token: {}", e.getMessage());
+        }
+        return Collections.emptyList();
+    }
+
+    public boolean hasRole(String token, String requiredRole) {
+        if (token == null || token.isBlank() || requiredRole == null || requiredRole.isBlank()) {
+            return false;
+        }
+
+        String normalizedRole = requiredRole.trim().toUpperCase(Locale.ROOT);
+        if (!normalizedRole.startsWith("ROLE_")) {
+            normalizedRole = "ROLE_" + normalizedRole;
+        }
+
+        String finalNormalizedRole = normalizedRole;
+        return getRolesFromToken(token).stream()
+                .map(role -> role == null ? "" : role.trim().toUpperCase(Locale.ROOT))
+                .anyMatch(role -> role.equals(finalNormalizedRole));
     }
 
 

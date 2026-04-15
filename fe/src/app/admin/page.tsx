@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { CalendarDays, Mail, MapPin, Phone, ReceiptText, Ticket, Users } from "lucide-react";
 import { compressImageFileToDataUrl } from "@/lib/imageCompression";
+import AdminChatPanel from "@/components/AdminChatPanel";
 
 type AdminRoom = {
   id: number;
@@ -142,7 +143,7 @@ const fileToDataUrl = (file: File) =>
   });
 
 const splitImages = (value: string) =>
-  value
+  (value && typeof value === "string" ? value : "")
     .split("|")
     .map((item) => item.trim())
     .filter(Boolean);
@@ -179,8 +180,17 @@ const buildFooterLinkRows = (labels: string[], urls: string[]) => {
 };
 
 const formatBookingDate = (value: string) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
+  if (!value || typeof value !== "string") return "-";
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return value;
+  }
+
+  const parsed = new Date(year, month - 1, day);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("vi-VN");
 };
 
@@ -216,7 +226,7 @@ const getBookingStatusRingClass = (value?: string) => {
 };
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"overview" | "branches" | "rooms" | "bookings" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "branches" | "rooms" | "bookings" | "chat" | "settings">("overview");
   const [token, setToken] = useState("");
   const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
   const [email, setEmail] = useState("");
@@ -329,10 +339,22 @@ export default function AdminPage() {
     try {
       setMessage("Đang tải dữ liệu admin...");
       const [branchRes, roomRes, bookingRes, settingsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/public/branches`, { headers: authHeaders }),
-        fetch(`${API_BASE}/api/admin/rooms`, { headers: authHeaders }),
-        fetch(`${API_BASE}/bookings/all-bookings`, { headers: authHeaders }),
-        fetch(`${API_BASE}/api/admin/home-page/booking-settings`, { headers: authHeaders }),
+        fetch(`${API_BASE}/api/public/branches`, {
+          headers: { ...authHeaders, "Cache-Control": "no-cache" },
+          cache: "no-store",
+        }),
+        fetch(`${API_BASE}/api/admin/rooms`, {
+          headers: { ...authHeaders, "Cache-Control": "no-cache" },
+          cache: "no-store",
+        }),
+        fetch(`${API_BASE}/bookings/all-bookings`, {
+          headers: { ...authHeaders, "Cache-Control": "no-cache" },
+          cache: "no-store",
+        }),
+        fetch(`${API_BASE}/api/admin/home-page/booking-settings`, {
+          headers: { ...authHeaders, "Cache-Control": "no-cache" },
+          cache: "no-store",
+        }),
       ]);
 
       // Check for 401 on any request
@@ -353,7 +375,10 @@ export default function AdminPage() {
         settingsRes.json(),
       ]);
 
-      const homePageRes = await fetch(`${API_BASE}/api/public/home-page`);
+      const homePageRes = await fetch(`${API_BASE}/api/public/home-page`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const homePageData = homePageRes.ok ? ((await homePageRes.json()) as HomePageConfigData) : null;
 
       setBranches(branchesData as Branch[]);
@@ -465,6 +490,7 @@ export default function AdminPage() {
         throw new Error("Không lưu được cấu hình nhận booking");
       }
       setMessage("Đã cập nhật cấu hình nhận booking");
+      await loadAdminData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Lưu cấu hình thất bại");
     }
@@ -535,6 +561,7 @@ export default function AdminPage() {
         termsPageNote: updated.termsPageNote ?? "",
       });
       setMessage(successMessage);
+      await loadAdminData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : failureMessage);
     }
@@ -933,6 +960,7 @@ export default function AdminPage() {
     { id: "branches" as const, label: "Chi nhánh", icon: "🏢" },
     { id: "rooms" as const, label: "Quản lý phòng", icon: "🏠" },
     { id: "bookings" as const, label: "Đặt phòng", icon: "📅" },
+    { id: "chat" as const, label: "Chat", icon: "💬" },
     { id: "settings" as const, label: "Cài đặt", icon: "⚙️" },
   ];
 
@@ -1052,7 +1080,7 @@ export default function AdminPage() {
                     <div>
                       <p className="font-semibold">{booking.guestName}</p>
                       <p className="text-sm text-[#9c7450]">
-                        {booking.selectedRoomName} • {booking.selectedDayLabel}
+                        {booking.selectedRoomName} • {formatBookingDate(booking.checkInDate)}
                       </p>
                     </div>
                     <button
@@ -1551,7 +1579,8 @@ export default function AdminPage() {
                               Lịch đặt
                             </div>
                             <div className="mt-2 space-y-1 text-sm text-[#6b4a2d]">
-                              <p>{booking.selectedDayLabel}</p>
+                              <p>{formatBookingDate(booking.checkInDate)}</p>
+                              <p className="text-xs text-[#9c7450]">Nhãn ngày: {booking.selectedDayLabel}</p>
                               <p>{booking.selectedSlotTime}</p>
                             </div>
                           </div>
@@ -1691,7 +1720,15 @@ export default function AdminPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày check-in</label>
+                        <input
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                          value={editingBooking.checkInDate}
+                          onChange={(e) => setEditingBooking({...editingBooking, checkInDate: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Nhãn ngày</label>
                         <input
                           className="w-full rounded-lg border border-slate-300 px-3 py-2"
                           value={editingBooking.selectedDayLabel}
@@ -1818,10 +1855,10 @@ export default function AdminPage() {
                       <div className="mt-2 grid gap-2 text-sm">
                         <p><span className="font-semibold">Chi nhánh:</span> {selectedBooking.branchName}</p>
                         <p><span className="font-semibold">Phòng:</span> {selectedBooking.selectedRoomName}</p>
-                        <p><span className="font-semibold">Ngày:</span> {selectedBooking.selectedDayLabel}</p>
+                        <p><span className="font-semibold">Ngày check-in:</span> {formatBookingDate(selectedBooking.checkInDate)}</p>
+                        <p><span className="font-semibold">Nhãn ngày:</span> {selectedBooking.selectedDayLabel}</p>
                         <p><span className="font-semibold">Khung giờ:</span> {selectedBooking.selectedSlotTime}</p>
                         <p><span className="font-semibold">Giá:</span> <span className="text-lg font-bold text-green-600">{selectedBooking.selectedSlotPrice}</span></p>
-                        <p><span className="font-semibold">Check-in:</span> {formatBookingDate(selectedBooking.checkInDate)}</p>
                         <p><span className="font-semibold">Check-out:</span> {formatBookingDate(selectedBooking.checkOutDate)}</p>
                       </div>
                     </div>
@@ -2138,6 +2175,12 @@ export default function AdminPage() {
                 </button>
               </div>
             </section>
+          </div>
+        )}
+
+        {activeTab === "chat" && (
+          <div className="space-y-6">
+            <AdminChatPanel adminToken={token} />
           </div>
         )}
       </div>
